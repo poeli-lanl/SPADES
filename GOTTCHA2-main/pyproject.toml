@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gottcha2"
+description = "GOTTCHA2: Genomic Origin Through Taxonomic CHAllenge v2"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "BSD-3-Clause"}
+authors = [
+  {name = "Po-E Li", email = "po-e@lanl.gov"},
+]
+keywords = ["bioinformatics", "taxonomy", "profiler", "metagenomics", "microbiome"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Bioinformatics",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+  "numpy>=1.19.0",
+  "pandas>=1.2.0",
+  "requests>=2.25.0",
+  "biom-format>=2.1.7",
+  "pysam>=0.22.0",
+  "tqdm",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/poeli/GOTTCHA2"
+Source = "https://github.com/poeli/GOTTCHA2"
+Issues = "https://github.com/poeli/GOTTCHA2/issues"
+Documentation = "https://github.com/poeli/GOTTCHA2/blob/master/README.md"
+
+[project.scripts]
+gottcha2 = "gottcha.gottcha2:cli"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["gottcha*"]
+exclude = ["test*", "tests*", "docs*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "gottcha.gottcha2.__version__"}

@@ -1,0 +1,144 @@
+name: GOTTCHA2 Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  functional-tests:
+    name: GOTTCHA2 test (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.9", "3.11"]
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          use-mamba: true
+          activate-environment: gottcha2
+          environment-file: environment.yml
+          python-version: ${{ matrix.python-version }}
+
+      - name: Installation
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --no-deps .
+          gottcha2 profile --help
+
+      - name: Prepare testing dataset
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          tar -xzf gottcha2_database_Ebola_test.tar.gz
+
+      - name: Run testing dataset - Backwards compatibility
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2.py -d gottcha2_database_test/gottcha_db.species.fna -t2 -i SRR12689945_1_1k.fastq.gz SRR12689945_2_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+
+      - name: Run testing dataset - Basic profile tests
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz -o output
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz SRR12689945_2_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+
+      - name: Run testing dataset - Advanced profile tests 
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i gottcha2_database_test/gottcha_db.species.fna.gz -np -o output
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz -nc -o output
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -b output/SRR12689945_1_1k.gottcha_species.bam -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+
+      - name: Run testing dataset - Profile tests with additional options
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz -mi 0.9 -mf 0.9 -mg 100 -o output
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -b output/SRR12689945_1_1k.gottcha_species.bam -a gottcha2_database_test/aoi_list.txt -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+
+      - name: Run testing dataset - ONT profile tests
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR2016557_extract.fasta.gz -o output -np -er 0.05
+          grep 'Orthoebolavirus zairense' output/SRR2016557_extract.tsv
+
+      - name: Run testing dataset - Profile with additional database options
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          rm -rf output/SRR12689945_1_1k.tsv
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna.mmi -i SRR12689945_1_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+          gottcha2 profile -d gottcha2_database_test -i SRR12689945_1_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+          gottcha2 fast-profile -d gottcha2_database_test/gottcha_db.species.fna.syldb -i SRR12689945_1_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+          gottcha2 fast-profile -d gottcha2_database_test -i SRR12689945_1_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+
+      - name: Run testing dataset - fast-profile tests
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 fast-profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz -o output
+          grep 'Orthoebolavirus zairense' output/SRR12689945_1_1k.tsv
+
+          gottcha2 fast-profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR2016557_extract.fasta.gz -o output -np -er 0.05
+          grep 'Orthoebolavirus zairense' output/SRR2016557_extract.tsv
+
+      - name: Test extract functionality - Simple extraction
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 profile -d gottcha2_database_test/gottcha_db.species.fna -i SRR12689945_1_1k.fastq.gz -mi 0.9 -mf 0.9 -mg 100 -o output
+          gottcha2 extract -d gottcha2_database_test/gottcha_db.species.fna -e 3052462 -b output/SRR12689945_1_1k.gottcha_species.bam -p test_ext -o output
+          count_tsv=$(grep "3052462" output/SRR12689945_1_1k.tsv | cut -f4)
+          grep -c '>' output/test_ext.extract.fasta | grep $count_tsv
+
+      - name: Test extract functionality - Additional extraction options
+        working-directory: test
+        run: |
+          set -euxo pipefail
+          gottcha2 extract -d gottcha2_database_test/gottcha_db.species.fna -e 3052462:10:fastq -b output/SRR12689945_1_1k.gottcha_species.bam -p test_ext1 -o output
+          wc -l output/test_ext1.extract.fastq | grep 40
+          gottcha2 extract -d gottcha2_database_test/gottcha_db.species.fna -ef -eo -b output/SRR12689945_1_1k.gottcha_species.bam -p test_ext2 -o output
+          wc -l output/test_ext2.extract.fasta | grep 280
+
+      - name: Run unittests
+        run: |
+          set -euxo pipefail
+          python -m unittest discover test -v

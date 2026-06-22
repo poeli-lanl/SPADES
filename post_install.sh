@@ -17,8 +17,6 @@ if [[ -z "${CONDA_PREFIX:-}" ]]; then
   fail "CONDA_PREFIX is not set. Activate the SPADES conda environment first."
 fi
 
-command -v ktImportTaxonomy >/dev/null 2>&1 || fail "ktImportTaxonomy is not on PATH. Install/activate Krona first."
-
 KRONA_TAXONOMY="$CONDA_PREFIX/opt/krona/taxonomy"
 SPADES_TAXONOMY="$SCRIPT_DIR/data/taxonomy_db"
 KRONA_DIR=$(dirname "$KRONA_TAXONOMY")

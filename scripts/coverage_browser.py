@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
+import bisect
+import gzip
 import os
 import json
 import re
+import sys
 import pandas as pd
 from collections import defaultdict
-import minify_html
+
+try:
+    import minify_html
+except ImportError:
+    minify_html = None
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -21,293 +28,702 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <link href="/publicdata/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/publicdata/css/primeicons.css">
     <style>
-        body {
-            font-family: sans-serif, 'Segoe UI', Tahoma, Geneva, Verdana;
-            margin: 0;
-            padding: 0;
-            background-color: #fff; /* off-white background */
-            color: #4a4a4a;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        header {
-            background-color: #a7aca2; /* sage green */
-            color: white;
-            padding: 15px 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        
-        .controls {
-            background-color: white;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        select, button {
-            padding: 8px 12px;
-            margin-right: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background-color: white;
-        }
-        
-        .btn-primary {
-            background-color: #b5a397; /* dusty rose */
-            color: white;
-            cursor: pointer;
-            border: none;
-            transition: background-color 0.3s;
-        }
-        
-        .btn-primary:hover {
-            background-color: #9c8a7e; /* Darker dusty rose */
-        }
-        
-        .visualization {
-            background-color: white;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            # overflow: hidden;
-        }
-        
-        .tooltip {
-            position: absolute;
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 10px;
-            pointer-events: none;
-            font-size: 12px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            z-index: 1000;
-        }
-        
-        .fragment {
-            cursor: pointer;
-            transition: opacity 0.3s;
-        }
-        
-        .fragment:hover {
-            opacity: 0.9;
+        :root {
+            --bg: #f6f8fb;
+            --panel: #ffffff;
+            --panel-soft: #f8fafc;
+            --text: #172033;
+            --muted: #697386;
+            --line: #dbe3ef;
+            --line-strong: #c2ccda;
+            --accent: #2563eb;
+            --accent-dark: #1d4ed8;
+            --accent-soft: #dbeafe;
+            --teal: #0f766e;
+            --rose: #be3455;
+            --shadow: 0 18px 45px rgba(31, 41, 55, 0.08);
         }
 
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        button,
+        select {
+            font: inherit;
+        }
+
+        .app-shell {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 28px;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 20px;
+        }
+
+        .eyebrow {
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 750;
+            margin: 0 0 6px;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            color: var(--text);
+            font-size: 30px;
+            font-weight: 760;
+            line-height: 1.12;
+            margin: 0;
+        }
+
+        .header-subtitle {
+            color: var(--muted);
+            margin: 8px 0 0;
+            max-width: 760px;
+        }
+
+        .header-meta {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .chip {
+            align-items: center;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            display: inline-flex;
+            font-size: 13px;
+            font-weight: 650;
+            gap: 7px;
+            min-height: 34px;
+            padding: 6px 12px;
+            white-space: nowrap;
+        }
+
+        .chip strong {
+            color: var(--text);
+            font-weight: 760;
+        }
+
+        .toolbar {
+            align-items: end;
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            display: grid;
+            gap: 16px;
+            grid-template-columns: minmax(280px, 1fr) auto;
+            margin-bottom: 18px;
+            padding: 16px;
+        }
+
+        .control-label {
+            color: var(--muted);
+            display: block;
+            font-size: 12px;
+            font-weight: 750;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+        }
+
+        .btn-primary {
+            align-items: center;
+            background: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: 7px;
+            color: white;
+            cursor: pointer;
+            display: inline-flex;
+            font-weight: 720;
+            gap: 8px;
+            justify-content: center;
+            min-height: 42px;
+            padding: 9px 14px;
+            transition: background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+            white-space: nowrap;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-dark);
+            border-color: var(--accent-dark);
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.22);
+            transform: translateY(-1px);
+        }
+
+        .metric-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 18px;
+        }
+
+        .metric-tile {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 750;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            color: var(--text);
+            font-size: 22px;
+            font-weight: 780;
+            line-height: 1.15;
+        }
+
+        .metric-note {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 18px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            align-items: center;
+            background: var(--panel);
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            padding: 14px 16px;
+        }
+
+        .panel-title {
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 760;
+            margin: 0;
+        }
+
+        .panel-body {
+            padding: 16px;
+        }
+
+        .plot-body {
+            padding: 10px 14px 16px;
+        }
+
+        #coverage-plot {
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        #coverage-plot svg {
+            display: block;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 7px;
+            box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22);
+            color: white;
+            font-size: 12px;
+            line-height: 1.45;
+            max-width: 340px;
+            padding: 10px 12px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .tooltip .text-muted {
+            color: #cbd5e1 !important;
+        }
+
+        .fragment,
         .fragment-indicator {
             cursor: pointer;
-            transition: opacity 0.3s;
+            transition: opacity 0.18s ease, filter 0.18s ease;
         }
+
+        .fragment:hover,
         .fragment-indicator:hover {
-            opacity: 0.9;
+            filter: brightness(1.05);
+            opacity: 0.92;
         }
 
         .legend {
-            margin-top: 20px;
-            display: flex;
-            justify-content: center;
             align-items: center;
+            border-top: 1px solid var(--line);
+            display: flex;
             flex-wrap: wrap;
-            font-size: 0.8em;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin: 0 15px 10px 0;
-        }
-        
-        .legend-color {
-            width: 15px;
-            height: 15px;
-            margin-right: 5px;
-            border-radius: 2px;
-        }
-        
-        .info-panel {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #f1f1f1;
-            border-radius: 5px;
-        }
-        
-        .axis line, .axis path {
-            stroke: #ccc;
-        }
-        
-        .axis text {
             font-size: 12px;
-            fill: #666;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 12px;
         }
-        
+
+        .legend-item {
+            align-items: center;
+            background: var(--panel-soft);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--muted);
+            display: inline-flex;
+            gap: 7px;
+            max-width: 100%;
+            padding: 5px 10px;
+        }
+
+        .legend-color {
+            border-radius: 999px;
+            flex: 0 0 auto;
+            height: 9px;
+            width: 9px;
+        }
+
+        .axis line,
+        .axis path {
+            stroke: var(--line-strong);
+        }
+
+        .axis text {
+            fill: var(--muted);
+            font-size: 12px;
+        }
+
         .brush .selection {
-            stroke: #a7aca2; /* sage green */
-            stroke-opacity: 0.6;
-            fill: #a7aca2;
-            fill-opacity: 0.1;
+            fill: var(--accent);
+            fill-opacity: 0.14;
+            stroke: var(--accent);
+            stroke-opacity: 0.72;
         }
-        
+
         .annotation-item { 
+            border-bottom: 1px solid var(--line);
             margin-bottom: 15px;
-            border-bottom: 1px dashed #ddd;
             padding-bottom: 10px;
         }
-        
+
         .annotation-item:last-child {
             border-bottom: none;
         }
-        
+
         #annotation-loading {
+            padding: 24px;
             text-align: center;
-            padding: 20px;
         }
-        
+
+        .modal-content {
+            border: 0;
+            border-radius: 8px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+        }
+
+        .modal-header,
+        .modal-footer {
+            border-color: var(--line);
+        }
+
         .card {
-            margin-bottom: 20px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
         }
-        
+
         .card-header {
-            background-color: #a7aca2; /* sage green */
-            color: white;
+            background: var(--panel-soft);
+            border-bottom: 1px solid var(--line);
+            color: var(--text);
+            font-weight: 760;
         }
-        
-        /* PrimeVue Select custom styles */
+
         .p-select {
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            background: var(--panel);
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
             width: 100%;
         }
-        
+
+        .p-select:not(.p-disabled):hover,
+        .p-select.p-focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+
         .p-select .p-select-label {
-            padding: 8px 12px;
-            color: #4a4a4a;
-            font-weight: 500;
+            color: var(--text);
+            font-weight: 650;
+            padding: 9px 12px;
         }
-        
+
         .p-select .p-select-dropdown {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            color: var(--muted);
         }
-        
+
+        .p-select-overlay,
+        .p-select-panel {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.16);
+        }
+
         .p-select-option {
-            padding: 8px 12px;
+            padding: 9px 12px;
         }
-        
+
         .p-select-option.p-focus {
-            background-color: #a7aca2; /* sage green to match theme */
-            color: white;
+            background: var(--accent-soft);
+            color: var(--text);
         }
-        
-        /* Genome option styles */
+
         .genome-option {
-            display: flex;
-            justify-content: space-between;
             align-items: center;
+            display: grid;
+            gap: 8px;
+            grid-template-columns: minmax(0, 1fr) auto auto auto;
             width: 100%;
         }
-        
+
         .genome-name {
-            flex-grow: 1;
-        }
-        
-        .genome-taxid {
-            color: #6c757d;
-            margin-right: 10px;
-            font-size: 0.85em;
-        }
-        
-        .read-count {
-            background-color: #a7aca2;
-            color: white;
-            font-size: 0.8em;
-            padding: 2px 6px;
-            border-radius: 10px;
+            font-weight: 650;
+            overflow: hidden;
+            text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .genome-taxid {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .genome-parent {
+            color: var(--teal);
+            font-size: 12px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .read-count {
+            background: var(--accent-soft);
+            border-radius: 999px;
+            color: var(--accent-dark);
+            font-size: 12px;
+            font-weight: 760;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+
+        .variant-marker {
+            cursor: pointer;
+            stroke: white;
+            stroke-width: 1px;
+            transition: opacity 0.18s ease, stroke-width 0.18s ease;
+        }
+
+        .variant-marker:hover {
+            opacity: 0.88;
+            stroke-width: 2px;
+        }
+
+        .variant-track-label {
+            fill: var(--muted);
+            font-size: 11px;
+            font-weight: 720;
+        }
+
+        .variant-badge {
+            background: var(--rose);
+            border-radius: 999px;
+            color: white;
+            font-size: 12px;
+            font-weight: 760;
+            padding: 4px 9px;
+            white-space: nowrap;
+        }
+
+        .variant-source {
+            align-items: center;
+            color: var(--muted);
+            display: flex;
+            flex-wrap: wrap;
+            font-size: 13px;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .variant-table {
+            border-color: var(--line);
+            font-size: 13px;
+            margin: 0;
+        }
+
+        .variant-table-wrap {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            max-height: 430px;
+            overflow: auto;
+        }
+
+        .variant-table thead th {
+            background: var(--panel-soft);
+            border-bottom: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 760;
+            position: sticky;
+            text-transform: uppercase;
+            top: 0;
+            white-space: nowrap;
+            z-index: 1;
+        }
+
+        .variant-table td {
+            color: var(--text);
+            vertical-align: top;
+        }
+
+        .variant-table tbody tr {
+            transition: background-color 0.16s ease;
+        }
+
+        .variant-table tbody tr:hover {
+            background: #eef6ff;
+        }
+
+        .variant-row-selected {
+            outline: 2px solid var(--accent);
+            outline-offset: -2px;
+        }
+
+        .detail-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .detail-item {
+            background: var(--panel-soft);
+            border: 1px solid var(--line);
+            border-radius: 7px;
+            padding: 12px;
+        }
+
+        .detail-label {
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 760;
+            text-transform: uppercase;
+        }
+
+        .detail-value {
+            color: var(--text);
+            font-weight: 720;
+            margin-top: 4px;
+            overflow-wrap: anywhere;
+        }
+
+        .empty-state {
+            align-items: center;
+            background: var(--panel-soft);
+            border: 1px dashed var(--line-strong);
+            border-radius: 8px;
+            color: var(--muted);
+            display: flex;
+            min-height: 92px;
+            padding: 18px;
+        }
+
+        .empty-state code {
+            background: var(--accent-soft);
+            border-radius: 5px;
+            color: var(--accent-dark);
+            padding: 2px 5px;
+        }
+
+        @media (max-width: 900px) {
+            .app-shell {
+                padding: 18px;
+            }
+
+            .app-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .header-meta {
+                justify-content: flex-start;
+            }
+
+            .toolbar,
+            .metric-grid,
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-primary {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="app" class="container">        
-        <div class="visualization controls mb-4">
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-8">
-                        <p-select
-                            v-model="selectedGenome"
-                            :options="genomeOptions"
-                            option-label="label"
-                            option-value="value"
-                            placeholder="Search or select a genome..."
-                            filter
-                            @change="handleGenomeSelect"
-                            class="w-100"
-                        >
-                            <template #option="slotProps">
-                                <div class="genome-option">
-                                    <span class="genome-name">{{ slotProps.option.name }}</span>
-                                    <span class="genome-taxid">({{ slotProps.option.taxid }})</span>
-                                    <span class="read-count">{{ slotProps.option.readCount.toLocaleString() }} reads</span>
-                                </div>
-                            </template>
-                        </p-select>
-                    </div>
-                    <div class="col-md-4">
-                        <button @click="resetZoom" class="btn btn-primary">Reset Zoom</button>
-                    </div>
-                </div>
+    <div id="app" class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">Coverage browser</p>
+                <h1>Genome Signature Browser</h1>
+                <p class="header-subtitle" v-if="currentGenome">
+                    {{ currentGenome.name }}<span v-if="currentGenome.parentName"> ({{ currentGenome.parentName }})</span> - {{ currentGenome.taxid }}
+                </p>
             </div>
-        </div>
+            <div class="header-meta">
+                <span class="chip"><i class="pi pi-database"></i><strong>{{ genomeOptions.length.toLocaleString() }}</strong> genomes</span>
+                <span class="chip"><i class="pi pi-file"></i><strong>{{ vcfFiles.length.toLocaleString() }}</strong> VCF sources</span>
+            </div>
+        </header>
+
+        <section class="toolbar">
+            <div>
+                <label class="control-label">Genome</label>
+                <p-select
+                    v-model="selectedGenome"
+                    :options="genomeOptions"
+                    option-label="label"
+                    option-value="value"
+                    placeholder="Search or select a genome..."
+                    filter
+                    @change="handleGenomeSelect"
+                    class="w-100"
+                >
+                    <template #option="slotProps">
+                        <div class="genome-option">
+                            <span class="genome-name">{{ slotProps.option.name }}</span>
+                            <span v-if="slotProps.option.parentName" class="genome-parent">({{ slotProps.option.parentName }})</span>
+                            <span class="genome-taxid">({{ slotProps.option.taxid }})</span>
+                            <span class="read-count">{{ slotProps.option.readCount.toLocaleString() }} reads</span>
+                        </div>
+                    </template>
+                </p-select>
+            </div>
+            <button @click="resetZoom" class="btn-primary" type="button">
+                <i class="pi pi-refresh"></i>
+                Reset Zoom
+            </button>
+        </section>
+
+        <section class="metric-grid" v-if="currentSummary">
+            <div class="metric-tile">
+                <div class="metric-label">Reads</div>
+                <div class="metric-value">{{ currentSummary.readCount.toLocaleString() }}</div>
+                <div class="metric-note">mapped to signatures</div>
+            </div>
+            <div class="metric-tile">
+                <div class="metric-label">Fragments</div>
+                <div class="metric-value">{{ currentSummary.fragmentCount.toLocaleString() }}</div>
+                <div class="metric-note">shown in this genome</div>
+            </div>
+            <div class="metric-tile">
+                <div class="metric-label">Signature Coverage</div>
+                <div class="metric-value">{{ currentSummary.overallCoverage.toFixed(1) }}%</div>
+                <div class="metric-note">{{ currentSummary.coverageSource }}</div>
+            </div>
+            <div class="metric-tile">
+                <div class="metric-label">Mean Depth</div>
+                <div class="metric-value">{{ currentSummary.meanDepth.toFixed(1) }}x</div>
+                <div class="metric-note">across fragments</div>
+            </div>
+        </section>
         
-        <div class="card visualization mb-4">
-            <div class="card-body">
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Signature Coverage</h2>
+                <span class="chip" v-if="currentGenome"><i class="pi pi-chart-bar"></i>{{ currentGenome.totalLength.toLocaleString() }} bp</span>
+            </div>
+            <div class="panel-body plot-body">
                 <div id="coverage-plot"></div>
                 <div class="legend" id="legend"></div>
             </div>
-        </div>
-        
-        <div class="card" v-if="currentGenome">
-            <div class="card-header">
-                Genome Signature Information
+        </section>
+
+        <section class="panel" id="variant-card">
+            <div class="panel-header">
+                <h2 class="panel-title">VCF Variants</h2>
+                <span id="variant-count-badge" class="variant-badge">0 variants</span>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Name:</strong> {{ currentGenome.name }}</p>
-                        <p><strong>Taxid:</strong> {{ currentGenome.taxid }}</p>
-                        <p><strong>Domain:</strong> {{ currentGenome.superkingdom }}</p>
-                        <p><strong>Genome Size:</strong> {{ currentGenome.genomeSize.toLocaleString() }} bp</p>
+            <div class="panel-body">
+                <div id="variant-file-list" class="variant-source"></div>
+                <div id="variant-table"></div>
+            </div>
+        </section>
+        
+        <section class="panel" v-if="currentGenome">
+            <div class="panel-header">
+                <h2 class="panel-title">Genome Signature Information</h2>
+            </div>
+            <div class="panel-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Name</div>
+                        <div class="detail-value">{{ currentGenome.name }}</div>
                     </div>
-                    <div class="col-md-6">
-                        <p><strong>Signature Level:</strong> {{ currentGenome.db_level }}</p>
-                        <p><strong>Total Signature Fragments:</strong> {{ currentGenome.numOfSeq.toLocaleString() }}</p>
-                        <p><strong>Total Signature Length:</strong> {{ currentGenome.totalLength.toLocaleString() }} bp</p>
-                        
+                    <div class="detail-item">
+                        <div class="detail-label">Taxid</div>
+                        <div class="detail-value">{{ currentGenome.taxid }}</div>
+                    </div>
+                    <div class="detail-item" v-if="currentGenome.parentName">
+                        <div class="detail-label">Parent Name</div>
+                        <div class="detail-value">{{ currentGenome.parentName }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Signature Level</div>
+                        <div class="detail-value">{{ currentGenome.db_level }}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Genome Size</div>
+                        <div class="detail-value">{{ currentGenome.genomeSize.toLocaleString() }} bp</div>
+                    </div>
+                    <div class="detail-item" v-if="currentGenome.bestSigCov !== null && currentGenome.bestSigCov !== undefined">
+                        <div class="detail-label">signature coverage</div>
+                        <div class="detail-value">{{ formatPercent(currentGenome.bestSigCov) }}</div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="card" v-else>
-            <div class="card-header">
-                Genome Signature Information
+        </section>
+        <section class="panel" v-else>
+            <div class="panel-header">
+                <h2 class="panel-title">Genome Signature Information</h2>
             </div>
-            <div class="card-body">
-                <p class="text-muted">Select a genome to view information</p>
+            <div class="panel-body">
+                <div class="empty-state">Select a genome to view information</div>
             </div>
-        </div>
+        </section>
     </div>
 
     <!-- NCBI Annotation Query Modal -->
@@ -340,6 +756,16 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         // The data will be injected here
         const genomeData = GENOME_DATA_PLACEHOLDER;
         const coverageData = COVERAGE_DATA_PLACEHOLDER;
+        const variantData = VARIANT_DATA_PLACEHOLDER;
+        const vcfFiles = VCF_FILE_DATA_PLACEHOLDER;
+        const minVariantDepth = MIN_VARIANT_DEPTH_PLACEHOLDER;
+        const variantsBySeq = variantData.reduce((acc, variant) => {
+            const seqName = String(variant.seq_name || '');
+            if (!seqName) return acc;
+            if (!acc[seqName]) acc[seqName] = [];
+            acc[seqName].push(variant);
+            return acc;
+        }, {});
         
         // Initialize D3 variables
         let svg, xScale, yScale, xAxis, yAxis, xAxisTop, brush;
@@ -394,11 +820,51 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 // Format options for vue-select
                 const genomeOptions = genomesWithReadCounts.map(genome => ({
                     value: genome.taxid,
-                    label: `${genome.name} (${genome.taxid})`,
+                    label: genome.parentName
+                        ? `${genome.name} (${genome.parentName}) (${genome.taxid})`
+                        : `${genome.name} (${genome.taxid})`,
                     name: genome.name,
+                    parentName: genome.parentName || '',
                     taxid: genome.taxid,
                     readCount: genome.readCount
                 }));
+
+                function percentValue(value) {
+                    const numeric = Number(value);
+                    if (!Number.isFinite(numeric)) return null;
+                    return numeric <= 1 ? numeric * 100 : numeric;
+                }
+
+                function formatPercent(value) {
+                    const pct = percentValue(value);
+                    return pct === null ? 'N/A' : `${pct.toFixed(1)}%`;
+                }
+
+                const currentSummary = computed(() => {
+                    const genome = currentGenome.value;
+                    if (!genome) return null;
+
+                    const fragments = coverageData.filter(d => String(d.genome_taxid) === String(genome.taxid));
+                    const fragmentCount = fragments.length;
+                    const readCount = genomeTotalReads[genome.taxid] || 0;
+                    const coveredBases = fragments.reduce((sum, fragment) => {
+                        const length = Math.max(0, Number(fragment.end_position) - Number(fragment.start_position) + 1);
+                        return sum + (length * Number(fragment.coverage || 0) / 100);
+                    }, 0);
+                    const totalBases = fragments.reduce((sum, fragment) => {
+                        return sum + Math.max(0, Number(fragment.end_position) - Number(fragment.start_position) + 1);
+                    }, 0);
+                    const profileCoverage = percentValue(genome.bestSigCov);
+                    const overallCoverage = profileCoverage !== null
+                        ? profileCoverage
+                        : (totalBases ? (coveredBases / totalBases) * 100 : 0);
+                    const coverageSource = profileCoverage !== null ? 'overall coverage' : 'weighted signatures';
+                    const meanDepth = fragmentCount
+                        ? fragments.reduce((sum, fragment) => sum + Number(fragment.meandepth || 0), 0) / fragmentCount
+                        : 0;
+
+                    return { fragmentCount, readCount, overallCoverage, coverageSource, meanDepth };
+                });
                 
                 // Methods
                 function handleGenomeChange() {
@@ -445,7 +911,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                     genomeOptions,
                     currentGenome,
                     currentFragment,
+                    currentSummary,
                     genomesWithReadCounts,
+                    vcfFiles,
+                    minVariantDepth,
+                    formatPercent,
                     handleGenomeChange,
                     handleGenomeSelect,
                     resetZoom
@@ -480,8 +950,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             
             svg = d3.select("#coverage-plot")
                 .append("svg")
-                .attr("width", width + margin.left + margin.right)
+                .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                .attr("width", "100%")
                 .attr("height", height + margin.top + margin.bottom)
+                .attr("role", "img")
                 .append("g")
                 .attr("transform", `translate(${margin.left},${margin.top})`);
             
@@ -507,25 +979,28 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             svg.append("text")
                 .attr("transform", `translate(${width/2},${height + 40})`)
                 .style("text-anchor", "middle")
-                .style("font-size", "14px")
-                .style("fill", "#666")
+                .style("font-size", "12px")
+                .style("font-weight", "700")
+                .style("fill", "#697386")
                 .text("Total Signature (bp)");
             
             svg.append("text")
                 .attr("transform", `translate(${width/2},-30)`)
                 .style("text-anchor", "middle")
-                .style("font-size", "14px")
-                .style("fill", "#666")
-                .text("Signature Coverage (%)");
+                .style("font-size", "12px")
+                .style("font-weight", "700")
+                .style("fill", "#697386")
+                .text("Covered Signature Fragment (%)");
             
             svg.append("text")
                 .attr("transform", "rotate(-90)")
                 .attr("y", 0 - margin.left)
                 .attr("x", 0 - (height / 2) - 5)
                 .attr("dy", "1em")
-                .style("fill", "#666")
+                .style("fill", "#697386")
                 .style("text-anchor", "middle")
-                .style("font-size", "14px")
+                .style("font-size", "12px")
+                .style("font-weight", "700")
                 .text("Mean Depth (x)");
             
             // Create brush for zooming
@@ -536,6 +1011,195 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             svg.append("g")
                 .attr("class", "brush")
                 .call(brush);
+        }
+
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatNullableNumber(value) {
+            return value === null || value === undefined || value === '' ? '.' : Number(value).toLocaleString();
+        }
+
+        function formatNullablePercent(value) {
+            if (value === null || value === undefined || value === '') return '.';
+            const pct = Number(value);
+            return Number.isFinite(pct) ? `${pct.toFixed(1)}%` : '.';
+        }
+
+        function formatVariantTooltip(d) {
+            return `
+                <strong>Variant:</strong> ${escapeHtml(d.type || 'VAR')}<br>
+                <strong>Sequence:</strong> ${escapeHtml(d.seq_name)}<br>
+                <strong>Position:</strong> ${Number(d.pos).toLocaleString()}${d.end && d.end !== d.pos ? '-' + Number(d.end).toLocaleString() : ''}<br>
+                <strong>REF:</strong> ${escapeHtml(d.ref)}<br>
+                <strong>ALT:</strong> ${escapeHtml(d.alt)}<br>
+                <strong>DEPTH:</strong> ${formatNullableNumber(d.depth)}<br>
+                <strong>REF_DP:</strong> ${formatNullablePercent(d.ref_dp)}<br>
+                <strong>ALT_DP:</strong> ${formatNullablePercent(d.alt_dp)}<br>
+                <small class="text-muted">Click to highlight this variant in the table</small>
+            `;
+        }
+
+        function getMappedVariants(genomeFragments) {
+            const mapped = [];
+            const seen = new Set();
+
+            genomeFragments.forEach(fragment => {
+                const seqName = String(fragment.seq_name);
+                const fragmentVariants = variantsBySeq[seqName] || [];
+                const fragmentStart = Number(fragment.start_position);
+                const fragmentEnd = Number(fragment.end_position);
+
+                fragmentVariants.forEach(variant => {
+                    const variantStart = Number(variant.pos);
+                    const variantEnd = Number(variant.end || variant.pos);
+
+                    if (variantEnd < fragmentStart || variantStart > fragmentEnd) return;
+
+                    const markerPosition = Math.min(Math.max(variantStart, fragmentStart), fragmentEnd);
+                    const signatureX = Number(fragment.x_start) + (markerPosition - fragmentStart);
+                    const key = `${variant.source_index || 0}|${seqName}|${variant.pos}|${variant.end}|${variant.ref}|${variant.alt}|${fragment.x_start}`;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+
+                    mapped.push({
+                        ...variant,
+                        fragment_start: fragmentStart,
+                        fragment_end: fragmentEnd,
+                        relative_position: markerPosition - fragmentStart + 1,
+                        signature_x: signatureX
+                    });
+                });
+            });
+
+            mapped.sort((a, b) => a.signature_x - b.signature_x || Number(a.pos) - Number(b.pos));
+            mapped.forEach((variant, index) => {
+                variant.variant_index = index;
+            });
+            return mapped;
+        }
+
+        function drawVariants(mappedVariants) {
+            const variantTrackY = 24;
+
+            if (!mappedVariants.length) return;
+
+            svg.append('text')
+                .attr('class', 'variant-track-label')
+                .attr('x', 0)
+                .attr('y', variantTrackY - 10)
+                .text('Variants');
+
+            const variantTypes = [...new Set(mappedVariants.map(d => d.type || 'VAR'))];
+            const variantColorScale = d3.scaleOrdinal(d3.schemeSet2).domain(variantTypes);
+            const markerSymbol = d3.symbol().type(d3.symbolTriangle).size(70);
+
+            svg.selectAll('.variant-marker')
+                .data(mappedVariants)
+                .enter()
+                .append('path')
+                .attr('class', 'variant-marker')
+                .attr('d', markerSymbol)
+                .attr('transform', d => `translate(${xScale(d.signature_x)},${variantTrackY}) rotate(180)`)
+                .attr('fill', d => variantColorScale(d.type || 'VAR'))
+                .on('mouseover', function(event, d) {
+                    tooltip.transition()
+                        .duration(100)
+                        .style('opacity', .95);
+                    tooltip.html(formatVariantTooltip(d))
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 28) + 'px');
+                })
+                .on('mouseout', function() {
+                    tooltip.transition()
+                        .duration(500)
+                        .style('opacity', 0);
+                })
+                .on('click', function(event, d) {
+                    highlightVariantRow(d.variant_index);
+                });
+        }
+
+        function highlightVariantRow(variantIndex) {
+            document.querySelectorAll('.variant-row-selected').forEach(row => {
+                row.classList.remove('variant-row-selected');
+            });
+
+            const row = document.getElementById(`variant-row-${variantIndex}`);
+            if (!row) return;
+            row.classList.add('variant-row-selected');
+            row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+        }
+
+        function updateVariantPanel(mappedVariants, currentGenomeValue) {
+            const countBadge = document.getElementById('variant-count-badge');
+            const fileList = document.getElementById('variant-file-list');
+            const tableDiv = document.getElementById('variant-table');
+            if (!countBadge || !fileList || !tableDiv) return;
+
+            countBadge.textContent = `${mappedVariants.length.toLocaleString()} variant${mappedVariants.length === 1 ? '' : 's'}`;
+
+            if (!vcfFiles.length) {
+                fileList.innerHTML = `<span class="chip"><i class="pi pi-filter"></i>Min depth >= ${Number(minVariantDepth).toLocaleString()}</span>`;
+                tableDiv.innerHTML = '<div class="empty-state">Use <code>--vcf sample.vcf.gz</code> with a matching <code>sample.vcf.gz.tbi</code> index to show variants.</div>';
+                return;
+            }
+
+            fileList.innerHTML = `<span class="chip"><i class="pi pi-filter"></i>Min depth >= ${Number(minVariantDepth).toLocaleString()}</span><span class="chip"><i class="pi pi-file"></i>VCF source${vcfFiles.length === 1 ? '' : 's'}</span>${vcfFiles.map(f => `<span class="chip"><strong>${escapeHtml(f.name)}</strong></span>`).join('')}`;
+
+            if (!mappedVariants.length) {
+                const genomeName = currentGenomeValue && currentGenomeValue.name ? currentGenomeValue.name : 'this genome';
+                tableDiv.innerHTML = `<div class="empty-state">No variants with depth >= ${Number(minVariantDepth).toLocaleString()} overlap the displayed signature fragments for ${escapeHtml(genomeName)}.</div>`;
+                return;
+            }
+
+            const maxRows = 250;
+            const rows = mappedVariants.slice(0, maxRows).map(d => `
+                <tr id="variant-row-${d.variant_index}">
+                    <td>${escapeHtml(d.seq_name || '')}</td>
+                    <td>${Number(d.pos).toLocaleString()}${d.end && d.end !== d.pos ? '-' + Number(d.end).toLocaleString() : ''}</td>
+                    <td>${escapeHtml(d.type || 'VAR')}</td>
+                    <td>${escapeHtml(d.ref || '')}</td>
+                    <td>${escapeHtml(d.alt || '')}</td>
+                    <td>${escapeHtml(d.qual || '.')}</td>
+                    <td>${formatNullableNumber(d.depth)}</td>
+                    <td>${formatNullablePercent(d.ref_dp)}</td>
+                    <td>${formatNullablePercent(d.alt_dp)}</td>
+                </tr>
+            `).join('');
+
+            const truncatedNotice = mappedVariants.length > maxRows
+                ? `<p class="text-muted small mb-2">Showing the first ${maxRows.toLocaleString()} of ${mappedVariants.length.toLocaleString()} overlapping variants. All variants are drawn on the plot.</p>`
+                : '';
+
+            tableDiv.innerHTML = `
+                ${truncatedNotice}
+                <div class="table-responsive variant-table-wrap">
+                    <table class="table table-sm table-striped variant-table">
+                        <thead>
+                            <tr>
+                                <th>Seq</th>
+                                <th>Position</th>
+                                <th>Type</th>
+                                <th>REF</th>
+                                <th>ALT</th>
+                                <th>QUAL</th>
+                                <th>DEPTH</th>
+                                <th>REF_DP %</th>
+                                <th>ALT_DP %</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
         }
         
         // Update the visualization for the selected genome
@@ -553,6 +1217,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             
             if (genomeFragments.length === 0) {
                 d3.select("#coverage-plot").html("<p>No coverage data available for this genome.</p>");
+                updateVariantPanel([], currentGenomeValue);
                 return;
             }
             
@@ -583,7 +1248,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             
             // Create color scale for different sequences
             const seqNames = [...new Set(genomeFragments.map(d => d.seq_name))];
-            const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+            const colorScale = d3.scaleOrdinal(d3.schemeTableau10 || d3.schemeCategory10)
                 .domain(seqNames);
             
             // Create legend
@@ -620,9 +1285,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .attr("y", d => yScale(d.meandepth))
                 .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)))
                 .attr("height", d => height - yScale(d.meandepth))
-                .attr("fill", "#eee")
-                .attr("rx", 7)  // Add rounded corners with 7px radius
-                .attr("ry", 7); // Add rounded corners with 7px radius
+                .attr("fill", "#e8eef6")
+                .attr("rx", 5)
+                .attr("ry", 5);
             
             // Add signature fragment indicators on top of histogram
             svg.selectAll(".fragment-indicator")
@@ -636,7 +1301,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .attr("height", 15)
                 .attr("fill", d => colorScale(d.seq_name))
                 .attr("opacity", d => d.coverage / 100) // Opacity based on coverage percentage
-                .attr("rx", 4)  // Add rounded corners
+                .attr("rx", 4)
                 .attr("ry", 4)
                 .on("mouseover", function(event, d) {
                     tooltip.transition()
@@ -686,7 +1351,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)) * (d.coverage / 100)) // Width based on coverage percentage
                 .attr("height", d => height - yScale(d.meandepth))
                 .attr("fill", d => colorScale(d.seq_name))
-                .attr("rx", 3)  // Add rounded corners with 3px radius
+                .attr("rx", 4)
                 .attr("ry", 3)
                 .on("mouseover", function(event, d) {
                     tooltip.transition()
@@ -733,9 +1398,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .attr("y1", yScale(overallMeanDepth))
                 .attr("x2", width)
                 .attr("y2", yScale(overallMeanDepth))
-                .attr("stroke", "red")
-                .attr("stroke-width", 3)
-                .attr("stroke-opacity", 0.5)
+                .attr("stroke", "#be3455")
+                .attr("stroke-width", 2)
+                .attr("stroke-opacity", 0.72)
                 .attr("stroke-dasharray", "5,5")
                 .style("cursor", "pointer")
                 .on("mouseover", function(event) {
@@ -751,6 +1416,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                         .duration(500)
                         .style("opacity", 0);
                 });
+
+            const mappedVariants = getMappedVariants(genomeFragments);
+            drawVariants(mappedVariants);
+            updateVariantPanel(mappedVariants, currentGenomeValue);
         }
         
         // NCBI Nucleotide Annotation Query function
@@ -1150,6 +1819,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .duration(750)
                 .attr("x", d => xScale(d.x_start))
                 .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)) * (d.coverage / 100));
+
+            const [domainStart, domainEnd] = xScale.domain();
+            svg.selectAll(".variant-marker")
+                .transition()
+                .duration(750)
+                .attr("transform", d => `translate(${xScale(d.signature_x)},24) rotate(180)`)
+                .style("display", d => d.signature_x >= domainStart && d.signature_x <= domainEnd ? null : "none");
         }
     </script>
 </body>
@@ -1169,6 +1845,9 @@ def parse_coverage_file(coverage_file):
     # Convert data types for numerical columns
     numeric_cols = ['startpos', 'endpos', 'numreads', 'covbases', 'coverage', 'meandepth', 'meanbaseq']
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric)
+    df['start_position'] = pd.to_numeric(df['start_position'], errors='coerce').astype('Int64')
+    df['end_position'] = pd.to_numeric(df['end_position'], errors='coerce').astype('Int64')
+    df['genome_taxid'] = df['genome_taxid'].astype(str)
     
     # Handle meanmapq - set to 0 if it's not a valid number
     df['meanmapq'] = pd.to_numeric(df['meanmapq'], errors='coerce').fillna(0)
@@ -1181,62 +1860,447 @@ def parse_coverage_file(coverage_file):
     
     return coverage_data, df['genome_taxid'].unique().tolist()
 
-def _stats_has_header(stats_file: str) -> bool:
-    with open(stats_file, "r", encoding="utf-8") as handle:
-        for line in handle:
-            if not line.strip() or line.startswith("#"):
-                continue
-            first = line.rstrip("\n").split("\t", 1)[0].strip().lower()
-            return first in {"db_level", "db level", "level"}
-    return False
+def parse_full_file(full_file, uniq_taxid_list):
+    """Parse taxonomy full.tsv data keyed by TAXID and return genome data."""
+    if not full_file:
+        return []
 
-def _read_stats(stats_file: str) -> pd.DataFrame:
-    has_header = _stats_has_header(stats_file)
-    STATS_COLUMNS = ['DB_level', 'Name', 'Taxid', 'Domain', 'NumOfSeq', 'Max', 'Min', 'TotalLength', 'GenomeSize', 'Note']
     df = pd.read_csv(
-        stats_file,
-        sep="\t",
-        comment="#",
-        names=STATS_COLUMNS,
-        header=0 if has_header else None,
+        full_file,
+        sep='\t',
+        comment='#',
         low_memory=False,
-        dtype={"Taxid": "string"},
+        dtype={'TAXID': 'string', 'PARENT_NAME': 'string'},
     )
 
-    if "Note" not in df:
-        df["Note"] = ""
+    required_cols = {'TAXID', 'PARENT_NAME', 'BEST_SIG_COV', 'SIG_LEVEL', 'NAME', 'TOTAL_SIG_LEN', 'GENOME_SIZE'}
+    missing_cols = required_cols - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Full taxonomy file is missing required columns: {', '.join(sorted(missing_cols))}")
 
-    return df
-
-def parse_stats_file(stats_file, uniq_taxid_list):
-    df = _read_stats(stats_file)
     uniq_taxids = {str(t) for t in uniq_taxid_list}
-    df["Taxid"] = df["Taxid"].astype(str)
-    df = df[df["Taxid"].isin(uniq_taxids)]
-    
+    df['TAXID'] = df['TAXID'].astype(str)
+    df = df[df['TAXID'].isin(uniq_taxids)]
+    df['BEST_SIG_COV'] = pd.to_numeric(df['BEST_SIG_COV'], errors='coerce')
+    df['TOTAL_SIG_LEN'] = pd.to_numeric(df['TOTAL_SIG_LEN'], errors='coerce')
+    df['GENOME_SIZE'] = pd.to_numeric(df['GENOME_SIZE'], errors='coerce')
+
     # Convert to dictionary format for the JavaScript
     genome_data = []
-    
     for _, row in df.iterrows():
+        taxid = str(row['TAXID'])
+        parent_name = '' if pd.isna(row['PARENT_NAME']) else str(row['PARENT_NAME'])
+        best_sig_cov = None if pd.isna(row['BEST_SIG_COV']) else float(row['BEST_SIG_COV'])
+        total_sig_len = int(row['TOTAL_SIG_LEN']) if not pd.isna(row['TOTAL_SIG_LEN']) else 0
+        genome_size = int(row['GENOME_SIZE']) if not pd.isna(row['GENOME_SIZE']) else 0
+        
         genome_data.append({
-            'db_level': row['DB_level'],
-            'name': row['Name'],  # This will be the full name as read by pandas
-            'taxid': row['Taxid'],
-            'superkingdom': row['Domain'],
-            'numOfSeq': int(row['NumOfSeq']),
-            'max': int(row['Max']),
-            'min': int(row['Min']),
-            'totalLength': int(row['TotalLength']),
-            'genomeSize': int(row['GenomeSize']) if 'GenomeSize' in df.columns and not pd.isna(row['GenomeSize']) else 0
+            'db_level': row['SIG_LEVEL'],
+            'name': row['NAME'],
+            'parentName': parent_name,
+            'bestSigCov': best_sig_cov,
+            'taxid': taxid,
+            'superkingdom': row.get('SUPERKINGDOM', ''),
+            'numOfSeq': int(row.get('NUM_FRAG', 0)) if 'NUM_FRAG' in df.columns and not pd.isna(row.get('NUM_FRAG')) else 0,
+            'max': int(row.get('LONGEST_SIG_LEN', 0)) if 'LONGEST_SIG_LEN' in df.columns and not pd.isna(row.get('LONGEST_SIG_LEN')) else 0,
+            'min': int(row.get('SHORTEST_SIG_LEN', 0)) if 'SHORTEST_SIG_LEN' in df.columns and not pd.isna(row.get('SHORTEST_SIG_LEN')) else 0,
+            'totalLength': total_sig_len,
+            'genomeSize': genome_size
         })
-    
+
     return genome_data
 
-def generate_html(coverage_data, genome_data, output_file, use_external):
+
+def _flatten_vcf_args(vcf_args):
+    """Flatten --vcf arguments from argparse into a simple list."""
+    if not vcf_args:
+        return []
+
+    flattened = []
+    for item in vcf_args:
+        if isinstance(item, (list, tuple)):
+            flattened.extend(item)
+        else:
+            flattened.append(item)
+    return flattened
+
+
+def _find_tabix_index(vcf_file):
+    """Return the expected .tbi path for a compressed VCF, or None if missing."""
+    candidates = [f"{vcf_file}.tbi"]
+    if vcf_file.endswith('.gz'):
+        candidates.append(vcf_file[:-3] + '.tbi')
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _validate_vcf_inputs(vcf_files):
+    for vcf_file in vcf_files:
+        if not os.path.exists(vcf_file):
+            raise FileNotFoundError(f"VCF file not found: {vcf_file}")
+        if not vcf_file.endswith(('.vcf.gz', '.vcf.bgz', '.gz', '.bgz')):
+            raise ValueError(
+                f"VCF must be bgzip/gzip-compressed and tabix-indexed: {vcf_file}"
+            )
+        if _find_tabix_index(vcf_file) is None:
+            raise FileNotFoundError(
+                f"Missing tabix index for {vcf_file}. Expected {vcf_file}.tbi"
+            )
+
+
+def _truncate_text(value, max_length=500):
+    if value is None:
+        return ''
+    value = str(value)
+    if len(value) <= max_length:
+        return value
+    return value[: max_length - 3] + '...'
+
+
+def _parse_vcf_info(info_value):
+    if not info_value or info_value == '.':
+        return {}
+
+    info = {}
+    for field in info_value.split(';'):
+        if not field:
+            continue
+        if '=' in field:
+            key, value = field.split('=', 1)
+            info[key] = value
+        else:
+            info[field] = True
+    return info
+
+
+def _parse_int(value):
+    if value is None or value is True or value == '':
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_dp4(dp4_value):
+    if not dp4_value or dp4_value is True:
+        return None, None
+
+    parts = str(dp4_value).split(',')
+    if len(parts) < 4:
+        return None, None
+
+    values = [_parse_int(value) for value in parts[:4]]
+    if any(value is None for value in values):
+        return None, None
+
+    ref_fwd, ref_rev, alt_fwd, alt_rev = values
+    return ref_fwd + ref_rev, alt_fwd + alt_rev
+
+
+def _depth_percent(count, depth, fallback_total):
+    if count is None:
+        return None
+
+    denominator = depth if depth and depth > 0 else fallback_total
+    if not denominator or denominator <= 0:
+        return None
+
+    return round((count / denominator) * 100, 1)
+
+
+def _infer_variant_type(ref, alt, info):
+    svtype = info.get('SVTYPE')
+    if svtype and svtype is not True:
+        return str(svtype)
+
+    alt_alleles = [allele for allele in str(alt).split(',') if allele and allele != '.']
+    if not alt_alleles:
+        return 'REF'
+
+    if any(allele.startswith('<') and allele.endswith('>') for allele in alt_alleles):
+        return 'SV'
+    if len(ref) == 1 and all(len(allele) == 1 for allele in alt_alleles):
+        return 'SNV'
+    if all(len(allele) == len(ref) for allele in alt_alleles):
+        return 'MNV'
+    if any(len(allele) > len(ref) for allele in alt_alleles) and any(len(allele) < len(ref) for allele in alt_alleles):
+        return 'INDEL'
+    if any(len(allele) > len(ref) for allele in alt_alleles):
+        return 'INS'
+    if any(len(allele) < len(ref) for allele in alt_alleles):
+        return 'DEL'
+    return 'COMPLEX'
+
+
+def _merge_intervals(intervals):
+    if not intervals:
+        return []
+
+    intervals = sorted((int(start), int(end)) if int(start) <= int(end) else (int(end), int(start)) for start, end in intervals)
+    merged = [list(intervals[0])]
+    for start, end in intervals[1:]:
+        if start <= merged[-1][1] + 1:
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return [tuple(interval) for interval in merged]
+
+
+def _parse_signature_contig(contig):
+    parts = str(contig).rstrip('|').split('|')
+    if len(parts) < 4:
+        return None
+
+    try:
+        start = int(parts[1])
+        end = int(parts[2])
+    except ValueError:
+        return None
+
+    return {
+        'seq_name': parts[0],
+        'start': start,
+        'end': end,
+        'taxid': parts[3],
+    }
+
+
+def _build_interval_lookup(coverage_data):
+    intervals_by_seq = defaultdict(list)
+    fetch_intervals_by_contig = defaultdict(list)
+    for row in coverage_data:
+        seq_name = str(row.get('seq_name', ''))
+        if not seq_name:
+            continue
+        start = int(row['start_position'])
+        end = int(row['end_position'])
+        intervals_by_seq[seq_name].append((start, end))
+
+        contig = str(row.get('rname', ''))
+        if contig:
+            fetch_intervals_by_contig[contig].append((1, abs(end - start) + 1))
+        fetch_intervals_by_contig[seq_name].append((start, end))
+
+    merged_by_seq = {seq: _merge_intervals(intervals) for seq, intervals in intervals_by_seq.items()}
+    starts_by_seq = {seq: [start for start, _ in intervals] for seq, intervals in merged_by_seq.items()}
+    fetch_by_contig = {contig: _merge_intervals(intervals) for contig, intervals in fetch_intervals_by_contig.items()}
+    return merged_by_seq, starts_by_seq, fetch_by_contig
+
+
+def _overlaps_any_interval(seq_name, start, end, intervals_by_seq, starts_by_seq):
+    intervals = intervals_by_seq.get(seq_name)
+    if not intervals:
+        return False
+
+    starts = starts_by_seq[seq_name]
+    candidate_index = bisect.bisect_right(starts, end) - 1
+    return candidate_index >= 0 and intervals[candidate_index][1] >= start
+
+
+def _variant_from_vcf_line(line, source_index, sample_names=None):
+    parts = line.rstrip('\n').split('\t')
+    if len(parts) < 8:
+        return None
+
+    chrom, pos, variant_id, ref, alt, qual, filter_value, info_value = parts[:8]
+    try:
+        local_pos = int(pos)
+    except ValueError:
+        return None
+
+    info = _parse_vcf_info(info_value)
+    end = info.get('END')
+    try:
+        local_end = int(end) if end and end is not True else local_pos + max(len(ref), 1) - 1
+    except ValueError:
+        local_end = local_pos + max(len(ref), 1) - 1
+
+    signature_contig = _parse_signature_contig(chrom)
+    if signature_contig:
+        seq_name = signature_contig['seq_name']
+        pos = signature_contig['start'] + local_pos - 1
+        end = signature_contig['start'] + local_end - 1
+    else:
+        seq_name = chrom
+        pos = local_pos
+        end = local_end
+
+    variant_type = _infer_variant_type(ref, alt, info)
+    depth = _parse_int(info.get('DP'))
+    ref_dp_count, alt_dp_count = _parse_dp4(info.get('DP4'))
+    dp4_total = (ref_dp_count or 0) + (alt_dp_count or 0)
+    ref_dp = _depth_percent(ref_dp_count, depth, dp4_total)
+    alt_dp = _depth_percent(alt_dp_count, depth, dp4_total)
+
+    return {
+        'source_index': source_index,
+        'seq_name': seq_name,
+        'pos': pos,
+        'end': end,
+        'ref': _truncate_text(ref, 120),
+        'alt': _truncate_text(alt, 120),
+        'qual': '' if qual == '.' else qual,
+        'type': variant_type,
+        'depth': depth,
+        'ref_dp': ref_dp,
+        'alt_dp': alt_dp,
+    }
+
+
+def _read_vcf_sample_names(vcf_file):
+    """Read VCF sample names from the #CHROM header line."""
+    with gzip.open(vcf_file, 'rt', encoding='utf-8', errors='replace') as handle:
+        for line in handle:
+            if line.startswith('#CHROM'):
+                return line.rstrip('\n').split('\t')[9:]
+    return []
+
+
+def _read_vcf_header_and_lines(vcf_file):
+    """Yield VCF header data and variant lines using the standard library gzip module."""
+    sample_names = []
+    with gzip.open(vcf_file, 'rt', encoding='utf-8', errors='replace') as handle:
+        for line in handle:
+            if line.startswith('##'):
+                continue
+            if line.startswith('#CHROM'):
+                header_parts = line.rstrip('\n').split('\t')
+                sample_names = header_parts[9:]
+                continue
+            if line.startswith('#'):
+                continue
+            yield sample_names, line
+
+
+def _read_vcf_lines_with_tabix(vcf_file, fetch_intervals_by_contig):
+    """Yield VCF lines through the tabix index when pysam is available."""
+    try:
+        import pysam
+    except ImportError:
+        return None
+
+    sample_names = _read_vcf_sample_names(vcf_file)
+
+    def iterator():
+        tabix_file = pysam.TabixFile(vcf_file)
+        try:
+            for contig, intervals in fetch_intervals_by_contig.items():
+                for start, end in intervals:
+                    try:
+                        records = tabix_file.fetch(contig, max(0, int(start) - 1), int(end))
+                    except ValueError:
+                        continue
+                    for line in records:
+                        yield sample_names, line
+        finally:
+            tabix_file.close()
+
+    return iterator()
+
+
+def _iter_relevant_vcf_lines(vcf_file, fetch_intervals_by_contig):
+    tabix_iter = _read_vcf_lines_with_tabix(vcf_file, fetch_intervals_by_contig)
+    if tabix_iter is not None:
+        try:
+            yield from tabix_iter
+            return
+        except Exception as exc:
+            print(
+                f"Warning: could not read {vcf_file} through its tabix index ({exc}); "
+                "falling back to a sequential gzip scan.",
+                file=sys.stderr,
+            )
+    else:
+        print(
+            "Warning: pysam is not installed; scanning compressed VCF sequentially. "
+            "Install pysam to use the .tbi index for faster VCF parsing.",
+            file=sys.stderr,
+        )
+
+    yield from _read_vcf_header_and_lines(vcf_file)
+
+
+def parse_vcf_files(vcf_files, coverage_data, min_depth=5):
+    """Parse compressed, indexed VCF files and keep variants overlapping signature fragments."""
+    vcf_files = _flatten_vcf_args(vcf_files)
+    if not vcf_files:
+        return [], []
+
+    _validate_vcf_inputs(vcf_files)
+    intervals_by_seq, starts_by_seq, fetch_intervals_by_contig = _build_interval_lookup(coverage_data)
+
+    variant_data = []
+    vcf_file_data = []
+
+    for source_index, vcf_file in enumerate(vcf_files):
+        source_name = os.path.basename(vcf_file)
+
+        seen_variant_lines = set()
+        for sample_names, line in _iter_relevant_vcf_lines(vcf_file, fetch_intervals_by_contig):
+            if line in seen_variant_lines:
+                continue
+            seen_variant_lines.add(line)
+            variant = _variant_from_vcf_line(line, source_index, sample_names)
+            if variant is None:
+                continue
+            if len(vcf_files) == 1:
+                variant.pop('source_index', None)
+            if min_depth is not None and min_depth > 0:
+                depth = variant.get('depth')
+                if depth is None or depth < min_depth:
+                    continue
+            if not _overlaps_any_interval(
+                variant['seq_name'], int(variant['pos']), int(variant['end']), intervals_by_seq, starts_by_seq
+            ):
+                continue
+            variant_data.append(variant)
+
+        vcf_file_data.append({'name': source_name})
+
+    return variant_data, vcf_file_data
+
+
+def _compact_coverage_for_html(coverage_data):
+    compact = []
+    for row in coverage_data:
+        compact.append({
+            'seq_name': str(row['seq_name']),
+            'start_position': int(row['start_position']),
+            'end_position': int(row['end_position']),
+            'genome_taxid': str(row['genome_taxid']),
+            'numreads': int(row['numreads']),
+            'coverage': round(float(row['coverage']), 4),
+            'meandepth': round(float(row['meandepth']), 4),
+        })
+    return compact
+
+
+def _compact_json(data):
+    return json.dumps(data, separators=(',', ':'))
+
+
+def generate_html(
+    coverage_data,
+    genome_data,
+    output_file,
+    use_external,
+    variant_data=None,
+    vcf_file_data=None,
+    min_variant_depth=5,
+):
     """Generate the HTML file with the visualization."""
+    variant_data = variant_data or []
+    vcf_file_data = vcf_file_data or []
+
     # Convert data to JSON for JavaScript
-    coverage_json = json.dumps(coverage_data)
-    genome_json = json.dumps(genome_data)
+    coverage_json = _compact_json(_compact_coverage_for_html(coverage_data))
+    genome_json = _compact_json(genome_data)
+    variant_json = _compact_json(variant_data)
+    vcf_file_json = _compact_json(vcf_file_data)
 
     if use_external:
         # Use CDN links for external resources
@@ -1268,31 +2332,55 @@ def generate_html(coverage_data, genome_data, output_file, use_external):
     # Replace placeholders in the HTML template
     html_content = html_content.replace('GENOME_DATA_PLACEHOLDER', genome_json)
     html_content = html_content.replace('COVERAGE_DATA_PLACEHOLDER', coverage_json)
+    html_content = html_content.replace('VARIANT_DATA_PLACEHOLDER', variant_json)
+    html_content = html_content.replace('VCF_FILE_DATA_PLACEHOLDER', vcf_file_json)
+    html_content = html_content.replace('MIN_VARIANT_DEPTH_PLACEHOLDER', str(min_variant_depth))
     
-    minified_html = minify_html.minify(html_content, keep_comments=False, minify_css=True, minify_js=True, remove_processing_instructions=True)
+    if minify_html is not None:
+        html_content = minify_html.minify(
+            html_content,
+            keep_comments=False,
+            minify_css=True,
+            minify_js=True,
+            remove_processing_instructions=True,
+        )
 
     # Write the HTML file
-    with open(output_file, 'w') as f:
-        f.write(minified_html)
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(html_content)
     
 def main():
     """Main function to process files and generate visualization."""
     parser = argparse.ArgumentParser(description='Generate an HTML-based genome coverage visualization')
     parser.add_argument('-c', '--coverage', required=True, help='Path to the coverage file')
-    parser.add_argument('-s', '--stats', required=True, help='Path to the stats file')
+    parser.add_argument('-f', '--full', required=True,
+                       help='Path to the full taxonomy profiling TSV with required columns')
     parser.add_argument('-o', '--output', default='coverage_visualization.html', 
                        help='Path to the output HTML file (default: coverage_visualization.html)')
     parser.add_argument('-e', '--external', action='store_true',
                        help='Use external resources for the HTML visualization')
+    parser.add_argument('--vcf', action='append', nargs='+', default=[],
+                       help='Path(s) to bgzip/gzip-compressed .vcf.gz files. May be used more than once. Each VCF must have a matching .tbi index.')
+    parser.add_argument('--min-depth', type=int, default=5,
+                       help='Minimum INFO/DP depth required to keep a VCF variant (default: 5)')
     
     args = parser.parse_args()
     
     # Process files
     coverage_data, uniq_taxid_list = parse_coverage_file(args.coverage)
-    genome_data = parse_stats_file(args.stats, uniq_taxid_list)
+    genome_data = parse_full_file(args.full, uniq_taxid_list)
+    variant_data, vcf_file_data = parse_vcf_files(args.vcf, coverage_data, min_depth=args.min_depth)
     
     # Generate HTML
-    generate_html(coverage_data, genome_data, args.output, args.external)
+    generate_html(
+        coverage_data,
+        genome_data,
+        args.output,
+        args.external,
+        variant_data=variant_data,
+        vcf_file_data=vcf_file_data,
+        min_variant_depth=args.min_depth,
+    )
 
     print(f"Visualization generated: {os.path.abspath(args.output)}")
 

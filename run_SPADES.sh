@@ -17,6 +17,7 @@ Usage:
     -t <cpu> \
     [--js-external] \
     [--spades-data <spades_data_dir>] \
+    [--min-depth <min_depth>] \
     [--ont] \
     [--ont-error-rate <float>] \
     [--clean]
@@ -34,6 +35,7 @@ Required:
 
 Optional:
   --spades-data       Directory containing taxonomy_db/ and pathogen.tsv
+  --min-depth         Minimum depth for variant calling (default: 10)
   --ont               Treat input as long reads; will split to 150bp and pass -np to gottcha2
   --ont-error-rate    Error rate for ONT reads (passed to gottcha2 -er), default: 0.03
   --js-external       Use CDN-hosted JavaScript/CSS assets in generated HTML reports
@@ -44,7 +46,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.1.0"
+VERSION="1.2.0"
 INPUT=""
 INPUT_QC=""
 READ=""
@@ -63,6 +65,7 @@ PAIRED="false"
 INPUT_QC_R1=""
 INPUT_QC_R2=""
 JS_EXTERNAL="false"
+MIN_DEPTH="10"
 DB_LEVEL=""
 
 # parse args
@@ -80,6 +83,7 @@ while [[ $# -gt 0 ]]; do
     --ont-error-rate)  ONT_ERROR_RATE="${2:-}"; shift 2 ;;
     --js-external)     JS_EXTERNAL="true"; shift ;;
     --clean)           CLEAN_FLAG="true"; shift ;; 
+    --min-depth)       MIN_DEPTH="${2:-}"; shift 2 ;;
     --version)         echo "$VERSION"; exit 0 ;;
     -h|--help)         usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 2 ;;
@@ -117,20 +121,21 @@ else
 fi
 
 # validate required args
-[[ -n "$OUTDIR" ]]     || { echo "ERROR: missing --outdir" >&2; usage; exit 2; }
-[[ -n "$PREFIX" ]]     || { echo "ERROR: missing --prefix" >&2; usage; exit 2; }
-[[ -n "$DB_PATH" ]]    || { echo "ERROR: missing --db-path" >&2; usage; exit 2; }
+[[ -n "$OUTDIR" ]]          || { echo "ERROR: missing --outdir" >&2; usage; exit 2; }
+[[ -n "$PREFIX" ]]          || { echo "ERROR: missing --prefix" >&2; usage; exit 2; }
+[[ -n "$DB_PATH" ]]         || { echo "ERROR: missing --db-path" >&2; usage; exit 2; }
 DB_PATH="${DB_PATH%.syldb}"
 DB_PATH="${DB_PATH%.zip}"
 DB_PATH="${DB_PATH%.stats}"
 DB_PATH="${DB_PATH%.tax.tsv}"
-[[ -f "$DB_PATH.syldb" ]] || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
-[[ -f "$DB_PATH.zip" ]] || { echo "ERROR: GOTTCHA2 signature archive not found: $DB_PATH.zip" >&2; exit 2; }
+[[ -f "$DB_PATH.syldb" ]]   || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
+[[ -f "$DB_PATH.zip" ]]     || { echo "ERROR: GOTTCHA2 signature archive not found: $DB_PATH.zip" >&2; exit 2; }
 [[ -f "$DB_PATH.tax.tsv" ]] || { echo "ERROR: GOTTCHA2 taxonomy file not found: $DB_PATH.tax.tsv" >&2; exit 2; }
-[[ -f "$DB_PATH.stats" ]] || { echo "ERROR: GOTTCHA2 stats file not found: $DB_PATH.stats" >&2; exit 2; }
+[[ -f "$DB_PATH.stats" ]]   || { echo "ERROR: GOTTCHA2 stats file not found: $DB_PATH.stats" >&2; exit 2; }
 [[ "$CPU" =~ ^[0-9]+$ && "$CPU" -gt 0 ]]|| { echo "ERROR: --cpu must be a positive integer" >&2; exit 2; }
 [[ -f "$SPADES_DATA/pathogen.tsv" ]]|| { echo "ERROR: missing $SPADES_DATA/pathogen.tsv" >&2; exit 2; }
 [[ "$ONT_ERROR_RATE" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "ERROR: --ont-error-rate must be numeric (e.g., 0.03)" >&2; exit 2; }
+[[ "$MIN_DEPTH" =~ ^[0-9]+$ && "$MIN_DEPTH" -gt 0 ]] || { echo "ERROR: --min-depth must be a positive integer" >&2; exit 2; }
 
 detect_db_level() {
   local db_path="$1"
@@ -141,7 +146,7 @@ detect_db_level() {
   local part
   for part in $base; do
     case "$part" in
-      superkingdom|phylum|class|order|family|genus|species|strain)
+      (superkingdom|phylum|class|order|family|genus|species|strain)
         rank="$part"
         break
         ;;
@@ -403,6 +408,9 @@ generate_coverage_browser() {
   log_start "Generating coverage browser HTML..."
   local bam="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.bam"
   local coverage="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.coverage.tsv"
+  local ref="$OUTDIR/$PREFIX.sylph_extracted.fa.gz"
+  local vcf="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz"
+  local full_tsv="$OUTDIR/$PREFIX.full.tsv"
   local status=0
 
   local js_external_flag=""
@@ -412,11 +420,38 @@ generate_coverage_browser() {
 
   if [[ $status -eq 0 ]]; then
     samtools coverage "$bam" > "$coverage" || status=$?
+
+    # convert FASTA to bgzip format
+    gzip -dc "$ref" | bgzip -@ "$CPU" -c > "$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
+    ref="$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
+    samtools faidx "$ref"
+
+    # Generate VCF
+    # --ploidy 1 is usually appropriate for bacterial/viral haploid references.
+    bcftools mpileup \
+        -Ou \
+        -f "$ref" \
+        -q 20 \
+        -Q 20 \
+        -a FORMAT/DP,FORMAT/AD \
+        --threads "$CPU" \
+        "$bam" | \
+    bcftools call \
+        -mv \
+        --ploidy 1 \
+        -Oz \
+        --threads "$CPU" \
+        -o "$vcf" || status=$?
+    
+    # index the VCF
+    bcftools index -t "$vcf" || status=$?
   fi
   if [[ $status -eq 0 ]]; then
     coverage_browser.py \
       -c "$coverage" \
-      -s "$DB_PATH.stats" \
+      -f "$full_tsv" \
+      --vcf "$vcf" \
+      --min-depth "$MIN_DEPTH" \
       $js_external_flag \
       -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
   fi
@@ -431,9 +466,18 @@ generate_coverage_browser() {
 
 after_run() {
   log_start "Writing pipeline metadata..."
-  echo -e "SPADES version: \n$VERSION" > "$OUTDIR/$PREFIX.info"
-  echo "GOTTCHA2 version:" >> "$OUTDIR/$PREFIX.info"
-  gottcha2 profile --version >> "$OUTDIR/$PREFIX.info"
+  echo -e "SPADES_version=$VERSION" > "$OUTDIR/$PREFIX.info"
+  fastp --version | sed 's/ /=/' >> "$OUTDIR/$PREFIX.info"
+  fastplong --version | sed 's/ /=/' >> "$OUTDIR/$PREFIX.info"
+  echo "GOTTCHA2_version=$(gottcha2 profile --version)" >> "$OUTDIR/$PREFIX.info"
+  echo "GOTTCHA2_database=$DB_PATH" >> "$OUTDIR/$PREFIX.info"
+  echo "ONT_mode=$ONT" >> "$OUTDIR/$PREFIX.info"
+  echo "ONT_error_rate=$ONT_ERROR_RATE" >> "$OUTDIR/$PREFIX.info"
+  samtools --version | awk '
+    /^samtools / { print "samtools_version="$2 }
+    /^Using htslib / { print "samtools_htslib_version="$3 }' >> "$OUTDIR/$PREFIX.info"
+  gzip -dc "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz" | grep "##bcftools" | sed 's/##//' | sed 's/; /\n/' >> "$OUTDIR/$PREFIX.info"
+
   local status=$?
   if [[ $status -eq 0 ]]; then
     log_success "Pipeline metadata recorded: '$OUTDIR/$PREFIX.info'."
@@ -447,9 +491,7 @@ after_run() {
       "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.sam" \
       "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.sam.temp" \
       "$OUTDIR/$PREFIX.split_reads.fasta.gz" \
-      "$OUTDIR/$PREFIX.sylph_extracted.fa.gz" \
-      "$OUTDIR/$PREFIX.sylph_query.tsv" \
-      "$OUTDIR/$PREFIX.sylph_queried_signatures.txt" \
+      "$OUTDIR/$PREFIX.sylph_*" \
       "$INPUT_QC" \
       "$INPUT_QC_R1" \
       "$INPUT_QC_R2"

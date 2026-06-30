@@ -22,292 +22,790 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <link rel="stylesheet" href="/publicdata/css/primeicons.css">
 
   <style>
+    :root {
+        --page-bg: #f6f8fb;
+        --surface: #ffffff;
+        --surface-muted: #f0f5f3;
+        --ink: #18212f;
+        --muted: #617080;
+        --line: #dce5ea;
+        --accent: #197278;
+        --accent-soft: #e6f3f1;
+        --accent-strong: #115e63;
+        --coral: #d95d39;
+        --gold: #d89f2a;
+        --blue: #3f7cac;
+        --shadow: 0 18px 45px rgba(24, 33, 47, 0.08);
+        --radius: 8px;
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
     body {
-        font-family: sans-serif;
-        margin: 20px;
+        min-height: 100vh;
+        margin: 0;
+        background: var(--page-bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0;
     }
-    h1 {
-        text-align: center;
-        margin-bottom: 30px;
+
+    button,
+    input {
+        font: inherit;
     }
-    #controls {
-        margin-bottom: 20px;
+
+    [v-cloak] {
+        display: none;
     }
-    #controls .form-label,
-    #controls .form-check-label,
-    #controls {
-        font-size: 0.9rem;
+
+    .app-shell {
+        width: min(1680px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
     }
-    #sankey {
-        width: 100%;
-        min-height: 600px;
-        height: 800px;
-        margin-bottom: 30px;
+
+    .report-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 18px;
     }
-    
-    /* PrimeVue DataTable Custom Styles */
-    .p-datatable-table {
-        font-size: 0.875rem;
-        border-radius: 0.375rem;
-        overflow: hidden;
+
+    .eyebrow {
+        color: var(--accent-strong);
+        font-size: 0.76rem;
+        font-weight: 700;
+        margin-bottom: 7px;
+        text-transform: uppercase;
     }
-    .p-datatable-table .p-datatable-thead > tr > th {
-        background-color: #f8f9fa;
-        border-bottom: 2px solid #dee2e6;
-        font-weight: 600;
-        font-size: 0.875rem;
-        white-space: nowrap;
+
+    .report-header h1 {
+        max-width: 100%;
+        color: var(--text);
+        margin: 0;
+        font-size: 30px;
+        font-weight: 760;
+        line-height: 1.12;
     }
-    .p-datatable-table .p-datatable-tbody > tr > td {
-        font-size: 0.875rem;
-        white-space: nowrap;
-    }
-    .p-datatable-table .p-datatable-tbody > tr:hover {
-        background-color: #f5f5f5;
-    }
-    .table-controls {
+
+    .header-meta,
+    .header-actions,
+    .panel-tools,
+    .table-toolbar,
+    .table-toolbar-actions {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 1rem;
-        gap: 1rem;
+        gap: 10px;
         flex-wrap: wrap;
     }
+
+    .header-meta {
+        margin-top: 14px;
+    }
+
+    .meta-pill,
+    .table-count,
+    .level-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--muted);
+        font-size: 0.83rem;
+        font-weight: 700;
+        padding: 0 12px;
+        white-space: nowrap;
+    }
+
+    .header-actions {
+        justify-content: flex-end;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    .metric-panel {
+        min-height: 96px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: 0 8px 25px rgba(24, 33, 47, 0.05);
+        padding: 16px;
+    }
+
+    .metric-label {
+        color: var(--muted);
+        font-size: 0.77rem;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .metric-value {
+        margin-top: 7px;
+        color: var(--ink);
+        font-size: clamp(1.28rem, 2vw, 1.8rem);
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .metric-subtle {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.83rem;
+    }
+
+    .control-panel,
+    .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: var(--shadow);
+    }
+
+    .control-panel {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        margin-bottom: 16px;
+        padding: 14px;
+        backdrop-filter: blur(14px);
+    }
+
+    .controls-grid {
+        display: grid;
+        grid-template-columns: minmax(220px, 1.25fr) repeat(2, minmax(135px, 0.55fr)) minmax(250px, 0.95fr) auto;
+        gap: 12px;
+        align-items: end;
+    }
+
+    .field-group {
+        min-width: 0;
+    }
+
+    .control-label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+    }
+
+    .metric-input,
     .search-input {
-        max-width: 300px;
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--ink);
+        padding: 0.48rem 0.72rem;
+        transition: border-color 150ms ease, box-shadow 150ms ease;
     }
-    .highlight {
-        background-color: #f0e68c;
-        font-weight: bold;
+
+    .metric-input:focus,
+    .search-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(25, 114, 120, 0.16);
+        outline: none;
     }
-    /* Custom PrimeVue input styling */
-    .p-inputtext {
-        border: 1px solid #ced4da;
-        border-radius: 0.375rem;
-        padding: 0.375rem 0.75rem;
+
+    .switch-stack {
+        display: grid;
+        gap: 8px;
     }
-    .p-dropdown {
-        border: 1px solid #ced4da;
-        border-radius: 0.375rem;
+
+    .filter-switch {
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        padding: 0 12px 0 2.55rem;
     }
-    .p-multiselect {
-        border: 1px solid #ced4da;
-        border-radius: 0.375rem;
+
+    .filter-switch .form-check-input {
+        cursor: pointer;
     }
-    /* SelectButton styling */
-    .p-selectbutton .p-button {
-        font-size: 0.875rem;
-        padding: 0.375rem 0.75rem;
+
+    .filter-switch .form-check-label {
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 0.92rem;
+        font-weight: 700;
     }
+
+    .control-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .icon-button {
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--ink);
+        font-weight: 800;
+        padding: 0 13px;
+        transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+        white-space: nowrap;
+    }
+
+    .icon-button:hover {
+        border-color: rgba(25, 114, 120, 0.45);
+        background: var(--accent-soft);
+        transform: translateY(-1px);
+    }
+
+    .icon-button--primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .icon-button--primary:hover {
+        border-color: var(--accent-strong);
+        background: var(--accent-strong);
+        color: #ffffff;
+    }
+
+    .workspace-grid {
+        display: grid;
+        gap: 16px;
+    }
+
+    .panel {
+        overflow: hidden;
+    }
+
+    .panel-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        padding: 15px 16px;
+    }
+
+    .panel-title {
+        margin: 0;
+        font-size: 1.02rem;
+        font-weight: 800;
+    }
+
+    .panel-subtitle {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.88rem;
+    }
+
+    #sankey {
+        width: 100%;
+        height: clamp(440px, 60vh, 790px);
+    }
+
+    .legend-strip {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .legend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+
+    .legend-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+    }
+
+    .table-panel .p-datatable {
+        border: 0;
+        border-radius: 0;
+    }
+
+    .table-toolbar {
+        justify-content: space-between;
+        padding: 2px 0;
+    }
+
+    .search-box {
+        position: relative;
+        width: min(360px, 100%);
+    }
+
+    .search-box .pi {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        color: var(--muted);
+        transform: translateY(-50%);
+    }
+
+    .search-box .search-input {
+        padding-left: 38px;
+    }
+
+    .p-datatable-table {
+        font-size: 0.86rem;
+    }
+
+    .p-datatable .p-datatable-header {
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        padding: 13px 16px;
+    }
+
+    .p-datatable-table .p-datatable-thead > tr > th {
+        border-color: var(--line);
+        background: #edf4f1;
+        color: #263440;
+        font-size: 0.78rem;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .p-datatable-table .p-datatable-tbody > tr > td {
+        border-color: #edf1f4;
+        color: #263440;
+        font-size: 0.84rem;
+        white-space: nowrap;
+    }
+
+    .p-datatable-table .p-datatable-tbody > tr:hover {
+        background: #f4faf8;
+    }
+
     .p-datatable .p-sortable-column.p-highlight {
-        background-color: #020617;
+        background: #dfeeea;
+        color: var(--accent-strong);
     }
-    /* Filter styling */
+
+    .p-datatable .p-paginator {
+        border: 0;
+        border-top: 1px solid var(--line);
+        background: var(--surface);
+        padding: 10px 16px;
+    }
+
     .p-column-filter {
         margin-top: 0.5rem;
     }
+
     .p-column-filter .p-inputtext {
         font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
     }
-    .p-column-filter .p-inputnumber {
-        font-size: 0.75rem;
+
+    .p-inputtext,
+    .p-dropdown,
+    .p-multiselect {
+        border: 1px solid var(--line);
+        border-radius: 7px;
     }
-    .p-datatable .p-datatable-thead > tr > th .p-column-header-content {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
+
+    .p-multiselect {
+        width: 100%;
+        min-height: 42px;
     }
+
+    .p-multiselect-label {
+        padding: 0.55rem 0.75rem;
+    }
+
+    .p-selectbutton .p-button {
+        border-color: var(--line);
+        color: var(--ink);
+        font-size: 0.86rem;
+        font-weight: 800;
+        padding: 0.48rem 0.8rem;
+    }
+
+    .p-selectbutton .p-button.p-highlight {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #ffffff;
+    }
+
+    .level-pill {
+        min-height: 26px;
+        border-color: transparent;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-size: 0.76rem;
+        padding: 0 10px;
+    }
+
+    .name-cell {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 520px;
+    }
+
+    .cell-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .pathogen-badge {
-        margin-left: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 800;
+        padding: 0 8px;
         cursor: pointer;
     }
-    .tooltip-inner {
-        max-width: 520px;
-        padding: 0;
+
+    .pathogen-badge--yes {
+        background: #fde8df;
+        color: #a33d20;
     }
+
+    .pathogen-badge--watch {
+        background: #edf1f4;
+        color: #52616f;
+    }
+
+    .empty-state {
+        color: var(--muted);
+        font-weight: 700;
+        padding: 24px;
+        text-align: center;
+    }
+
+    .tooltip-inner {
+        max-width: 560px;
+        padding: 0;
+        border-radius: 7px;
+        overflow: hidden;
+    }
+
     .tooltip-inner .tooltip-table-wrap {
         max-height: 500px;
         overflow: auto;
         display: block;
+        background: #ffffff;
+        color: var(--ink);
     }
+
     .tooltip-inner table {
         width: 100%;
         border-collapse: collapse;
         font-size: 0.8rem;
     }
-    .tooltip-inner th, .tooltip-inner td {
-        border: 1px solid #dee2e6;
+
+    .tooltip-inner th,
+    .tooltip-inner td {
+        border: 1px solid var(--line);
         padding: 0.35rem 0.5rem;
         text-align: left;
         vertical-align: top;
         white-space: normal;
     }
+
     .tooltip-inner thead th {
-        background: gray;
-        font-weight: 600;
+        background: #edf4f1;
+        color: var(--ink);
+        font-weight: 800;
+    }
+
+    @media (max-width: 1100px) {
+        .report-header,
+        .controls-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .header-actions,
+        .control-actions,
+        .legend-strip {
+            justify-content: flex-start;
+        }
+
+        .control-panel {
+            position: static;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .app-shell {
+            width: min(100% - 20px, 1680px);
+            padding-top: 18px;
+        }
+
+        .panel-heading,
+        .table-toolbar {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .icon-button {
+            width: 100%;
+        }
+
+        .header-actions .p-selectbutton {
+            width: 100%;
+        }
+
+        #sankey {
+            height: 520px;
+        }
     }
   </style>
 </head>
 <body>
 
-<div class="container">
-    <!-- <h1 class="mb-4">GOTTCHA2: TSVFILENAME</h1> -->
-
-    <div id="app">
-        <div id="controls" class="row row-cols-auto g-3 align-items-center justify-content-center mb-4">
-            <div class="col">
-                <label for="levelFilter" class="form-label mb-0">Levels:</label>
+<main class="app-shell">
+    <div id="app" v-cloak>
+        <header class="report-header">
+            <div>
+                <div class="eyebrow">GOTTCHA2 result viewer</div>
+                <h1>TSVFILENAME</h1>
+                <div class="header-meta">
+                    <span class="meta-pill"><i class="pi pi-database"></i>{{ formatNumber(totalRecords) }} rows</span>
+                    <span class="meta-pill"><i class="pi pi-sitemap"></i>{{ formatNumber(levelOptions.length) }} levels</span>
+                    <span class="meta-pill"><i class="pi pi-filter"></i>{{ activeFilterLabel }}</span>
+                </div>
             </div>
-            <div class="col">
-                <p-multi-select
-                    v-model="selectedLevels"
-                    :options="levelOptions"
+            <div class="header-actions">
+                <p-select-button
+                    v-model="activeView"
+                    :options="viewOptions"
                     option-label="label"
                     option-value="value"
-                    input-id="levelFilter"
-                    display="chip"
-                    placeholder="Select levels"
-                    class="w-100"
-                ></p-multi-select>
+                    aria-label="View mode"
+                ></p-select-button>
+                <button type="button" class="icon-button" @click="resetFilters" title="Reset filters">
+                    <i class="pi pi-refresh"></i>
+                    <span>Reset</span>
+                </button>
             </div>
+        </header>
 
-            <div class="col">
-                <label for="readCountMin" class="form-label mb-0">Read Count ≥</label>
+        <section class="stats-grid" aria-label="Filtered summary">
+            <div class="metric-panel">
+                <div class="metric-label">Pathogen</div>
+                <div class="metric-value">{{ formatNumber(summaryStats.pathogens) }}</div>
+                <div class="metric-subtle">{{ formatPercent(summaryStats.pathogenRate) }} of visible taxa</div>
             </div>
-            <div class="col">
-                <input
-                    type="number"
-                    id="readCountMin"
-                    class="form-control"
-                    v-model.number="rcMin"
-                    min="RC_MIN"
-                    max="RC_MAX"
-                    style="width: 90px;"
-                >
+            <div class="metric-panel">
+                <div class="metric-label">Visible taxa</div>
+                <div class="metric-value">{{ formatNumber(summaryStats.rows) }}</div>
+                <div class="metric-subtle">of {{ formatNumber(totalRecords) }} records</div>
             </div>
+            <div class="metric-panel">
+                <div class="metric-label">Read count</div>
+                <div class="metric-value">{{ formatNumber(summaryStats.reads) }}</div>
+                <div class="metric-subtle">filtered total</div>
+            </div>
+            <div class="metric-panel">
+                <div class="metric-label">Mean SNI</div>
+                <div class="metric-value">{{ formatDecimal(summaryStats.meanSni, 4) }}</div>
+                <div class="metric-subtle">across visible rows</div>
+            </div>
+        </section>
 
-            <div class="col">
-                <label for="sniAdjMin" class="form-label mb-0">SNI score ≥</label>
-            </div>
-            <div class="col">
-                <input
-                    type="number"
-                    id="sniAdjMin"
-                    class="form-control"
-                    step="0.01"
-                    v-model.number="sniMin"
-                    min="SNI_MIN"
-                    max="SNI_MAX"
-                    style="width: 90px;"
-                >
-            </div>
-
-            <div class="col">
-                <div class="form-check">
-                    <input type="checkbox" id="showValidOnly" class="form-check-input" v-model="showValidOnly">
-                    <label for="showValidOnly" class="form-check-label">Qualified Taxa Only</label>
+        <section id="controls" class="control-panel" aria-label="Filters">
+            <div class="controls-grid">
+                <div class="field-group">
+                    <label for="levelFilter" class="control-label">Levels</label>
+                    <p-multi-select
+                        v-model="selectedLevels"
+                        :options="levelOptions"
+                        option-label="label"
+                        option-value="value"
+                        input-id="levelFilter"
+                        display="chip"
+                        placeholder="Select levels"
+                    ></p-multi-select>
                 </div>
-            </div>
-            <div class="col">
-                <div class="form-check">
-                    <input type="checkbox" id="pathogenicOnly" class="form-check-input" v-model="showPathogenicOnly">
-                    <label for="pathogenicOnly" class="form-check-label">Pathogen Only</label>
+
+                <div class="field-group">
+                    <label for="readCountMin" class="control-label">Read count &gt;=</label>
+                    <input
+                        type="number"
+                        id="readCountMin"
+                        class="metric-input"
+                        v-model.number="rcMin"
+                        min="RC_MIN"
+                        max="RC_MAX"
+                    >
                 </div>
-            </div>
-        </div>
 
-        <div id="sankey" v-once class="mb-4"></div>
+                <div class="field-group">
+                    <label for="sniAdjMin" class="control-label">SNI score &gt;=</label>
+                    <input
+                        type="number"
+                        id="sniAdjMin"
+                        class="metric-input"
+                        step="0.01"
+                        v-model.number="sniMin"
+                        min="SNI_MIN"
+                        max="SNI_MAX"
+                    >
+                </div>
 
-        <p-data-table 
-            v-model:filters="filters" 
-                   :value="filteredTableData"
-                   :sortable="true"
-                   :resizable-columns="true"
-            scrollable
-            scrollHeight="400px"
-            paginator
-            :rows="10"
-            :rows-per-page-options="[10, 25, 50, 100]"
-            :global-filter-fields="['NAME', 'PARENT_NAME', 'LEVEL', 'TAXID']"
-            filterDisplay="row"
-            responsive-layout="scroll"
-            striped-rows
-            class="mt-6"
-        >
-            <template #header>
-                <div class="d-flex justify-content-between align-items-center sm">
-                    <div class="d-flex align-items-center">
-                        <input 
-                            type="text" 
-                            v-model="filters.global.value" 
-                            placeholder="Search keywords..." 
-                            class="form-control form-control-sm"
-                            style="width: 200px;"
-                        />
+                <div class="switch-stack">
+                    <div class="form-check form-switch filter-switch">
+                        <input type="checkbox" role="switch" id="showValidOnly" class="form-check-input" v-model="showValidOnly">
+                        <label for="showValidOnly" class="form-check-label">Qualified taxa only</label>
                     </div>
-                    <div class="d-flex align-items-center">
-                        <p-select-button 
-                            v-model="selectedLevels" 
-                            :options="levelOptions" 
-                            option-label="label" 
-                            option-value="value"
-                            :multiple="true"
-                            class="mt-6 sm"
-                        />
+                    <div class="form-check form-switch filter-switch">
+                        <input type="checkbox" role="switch" id="pathogenicOnly" class="form-check-input" v-model="showPathogenicOnly">
+                        <label for="pathogenicOnly" class="form-check-label">Pathogen only</label>
                     </div>
                 </div>
-            </template>
-            <template #empty> No records found. </template>
-            <template #loading> Loading... </template>
 
-            <!-- Frozen First Column -->
-            <p-column 
-                field="LEVEL" 
-                header="LEVEL" 
-                :sortable="true"
-                :showFilterMenu="true"
-                frozen 
-                alignFrozen="left"
-                style="min-width: 120px;"
-            >
-                <template #body="slotProps">
-                    <span>{{ formatCellValue(slotProps.data['LEVEL'], 'text') }}</span>
-                </template>
-            </p-column>
+                <div class="control-actions">
+                    <button type="button" class="icon-button" @click="clearSearch" title="Clear search">
+                        <i class="pi pi-times"></i>
+                        <span>Clear</span>
+                    </button>
+                    <button type="button" class="icon-button icon-button--primary" @click="exportCsv" title="Export filtered rows">
+                        <i class="pi pi-download"></i>
+                        <span>CSV</span>
+                    </button>
+                </div>
+            </div>
+        </section>
 
-            <p-column
-                v-for="column in columns" 
-                :key="column.field" 
-                :field="column.field"
-                :class="column.class"
-                :header="column.header"
-                :sortable="true"
-                :showFilterMenu="false"
-                :filterField="column.field"
-            >
-                <template #body="slotProps">
-                    <template v-if="column.field === 'NAME'">
-                        <span>{{ formatCellValue(slotProps.data[column.field], column.type) }}</span>
-                        <span
-                            v-if="getPathogenBadge(slotProps.data)"
-                            class="badge pathogen-badge"
-                            :class="getPathogenBadge(slotProps.data).class"
-                            v-bs-tooltip="{ title: formatPathogenicTooltip(slotProps.data['PATHOGENIC_INFO']) }"
-                        >
-                            {{ getPathogenBadge(slotProps.data).label }}
+        <div class="workspace-grid">
+            <section class="panel chart-panel" v-show="activeView !== 'table'">
+                <div class="panel-heading">
+                    <div>
+                        <h2 class="panel-title">Taxonomic flow</h2>
+                        <p class="panel-subtitle">{{ sankeySummary }}</p>
+                    </div>
+                    <div class="legend-strip" aria-label="Taxonomic level colors">
+                        <span class="legend-chip" v-for="item in levelColorLegend" :key="item.level">
+                            <span class="legend-dot" :style="{ background: item.color }"></span>
+                            {{ item.label }}
                         </span>
+                    </div>
+                </div>
+                <div id="sankey" v-once></div>
+            </section>
+
+            <section class="panel table-panel" v-show="activeView !== 'flow'">
+                <p-data-table
+                    v-model:filters="filters"
+                    :value="filteredTableData"
+                    :resizable-columns="true"
+                    scrollable
+                    scrollHeight="520px"
+                    paginator
+                    :rows="25"
+                    :rows-per-page-options="[10, 25, 50, 100]"
+                    :global-filter-fields="globalFilterFields"
+                    filterDisplay="row"
+                    responsive-layout="scroll"
+                    striped-rows
+                >
+                    <template #header>
+                        <div class="table-toolbar">
+                            <div class="search-box">
+                                <i class="pi pi-search"></i>
+                                <input
+                                    type="text"
+                                    v-model="filters.global.value"
+                                    placeholder="Search results"
+                                    class="search-input"
+                                />
+                            </div>
+                            <div class="table-toolbar-actions">
+                                <span class="table-count">{{ formatNumber(filteredTableData.length) }} rows</span>
+                                <button type="button" class="icon-button" @click="clearSearch" title="Clear search">
+                                    <i class="pi pi-times"></i>
+                                    <span>Clear</span>
+                                </button>
+                            </div>
+                        </div>
                     </template>
-                    <template v-else>
-                        <span>{{ formatCellValue(slotProps.data[column.field], column.type) }}</span>
+                    <template #empty>
+                        <div class="empty-state">No records match the current filters.</div>
                     </template>
-                </template>
-                
-            </p-column>
-        </p-data-table>
+                    <template #loading>
+                        <div class="empty-state">Loading records...</div>
+                    </template>
+
+                    <p-column
+                        field="LEVEL"
+                        header="LEVEL"
+                        :sortable="true"
+                        frozen
+                        alignFrozen="left"
+                        style="min-width: 135px;"
+                    >
+                        <template #body="slotProps">
+                            <span class="level-pill">{{ formatLevelLabel(slotProps.data['LEVEL']) }}</span>
+                        </template>
+                    </p-column>
+
+                    <p-column
+                        v-for="column in columns"
+                        :key="column.field"
+                        :field="column.field"
+                        :class="column.class"
+                        :header="column.header"
+                        :sortable="true"
+                        :showFilterMenu="false"
+                        :filterField="column.field"
+                    >
+                        <template #body="slotProps">
+                            <template v-if="column.field === 'NAME'">
+                                <span class="name-cell">
+                                    <span class="cell-text">{{ formatCellValue(slotProps.data[column.field], column.type) }}</span>
+                                    <span
+                                        v-if="getPathogenBadge(slotProps.data)"
+                                        class="pathogen-badge"
+                                        :class="getPathogenBadge(slotProps.data).class"
+                                        v-bs-tooltip="{ title: formatPathogenicTooltip(slotProps.data['PATHOGENIC_INFO']) }"
+                                    >
+                                        {{ getPathogenBadge(slotProps.data).label }}
+                                    </span>
+                                </span>
+                            </template>
+                            <template v-else>
+                                <span>{{ formatCellValue(slotProps.data[column.field], column.type) }}</span>
+                            </template>
+                        </template>
+                    </p-column>
+                </p-data-table>
+            </section>
+        </div>
     </div>
 
-</div>
+</main>
 <script src="/publicdata/js/bootstrap.bundle.min.js"></script>
 
 <script>
@@ -317,37 +815,60 @@ const levels = LEVELS_JSON;
 const defaultLevels = DEFAULT_LEVELS_JSON;
 const initialRcMin = RC_DEFAULT;
 const initialSniMin = SNI_DEFAULT;
+const reportFilename = REPORT_FILENAME_JSON;
+
+const levelColorMap = {
+  superkingdom: '#197278',
+  kingdom: '#3f7cac',
+  phylum: '#d89f2a',
+  class: '#6a994e',
+  order: '#d95d39',
+  family: '#5e548e',
+  genus: '#2a9d8f',
+  species: '#e76f51',
+  strain: '#8d6e63'
+};
+const fallbackLevelColors = ['#197278', '#3f7cac', '#d89f2a', '#6a994e', '#d95d39', '#5e548e', '#2a9d8f', '#e76f51'];
+const plotConfig = {
+  responsive: true,
+  displaylogo: false,
+  modeBarButtonsToRemove: ['lasso2d', 'select2d']
+};
 
 let vueApp; // Vue app instance
 function initVueApp() {
-    const { createApp, ref, computed, watch } = Vue;
+    const { createApp, ref, computed, watch, nextTick } = Vue;
 
     const app = createApp({
         setup() {
-            // Core reactive data
             const tableData = ref(records);
-            
-            // Initialize filters for PrimeVue DataTable
             const filters = ref({
                 global: { value: null, matchMode: 'contains' }
             });
-            
-            // Initialize column filters dynamically
+            const activeView = ref('all');
+            const viewOptions = [
+                { label: 'All', value: 'all' },
+                { label: 'Flow', value: 'flow' },
+                { label: 'Table', value: 'table' }
+            ];
+            const globalFilterFields = records.length > 0
+                ? Object.keys(records[0]).filter(key => key !== 'PATHOGENIC_INFO')
+                : [];
+
             if (records.length > 0) {
                 Object.keys(records[0]).forEach(key => {
                     if (key === 'PATHOGENIC_INFO') return; // hidden column for display
                     filters.value[key] = { value: null, matchMode: 'contains' };
                 });
             }
-            
-            // Level filter data
+
             const availableLevels = computed(() => {
                 return levels.map(level => ({
-                    label: level.charAt(0).toUpperCase() + level.slice(1),
+                    label: formatLevelLabel(level),
                     value: level
                 }));
             });
-            
+
             const selectedLevels = ref(
                 defaultLevels && defaultLevels.length > 0 ? [...defaultLevels] : [...levels]
             );
@@ -356,15 +877,10 @@ function initVueApp() {
             const showValidOnly = ref(true);
             const showPathogenicOnly = ref(false);
 
-            // Filter data by selected levels
             const filteredTableData = computed(() => {
-                if (!selectedLevels.value || selectedLevels.value.length === 0) {
-                    return tableData.value;
-                }
-                return tableData.value.filter(row => selectedLevels.value.includes(row.LEVEL));
+                return tableData.value;
             });
-            
-            // Table columns computed from data
+
             const columns = computed(() => {
                 if (records.length === 0) return [];
                 return Object.keys(records[0])
@@ -376,26 +892,97 @@ function initVueApp() {
                         class: typeof records[0][key] === 'number' ? 'text-end' : ''
                     }));
             });
-            
-            // Methods
+
+            const totalRecords = computed(() => records.length);
+            const summaryStats = computed(() => {
+                const rows = tableData.value || [];
+                const reads = rows.reduce((total, row) => {
+                    const value = Number(row.READ_COUNT);
+                    return total + (Number.isFinite(value) ? value : 0);
+                }, 0);
+                const sniValues = rows
+                    .map(row => Number(row.SNI_SCORE))
+                    .filter(value => Number.isFinite(value));
+                const meanSni = sniValues.length
+                    ? sniValues.reduce((total, value) => total + value, 0) / sniValues.length
+                    : 0;
+                const pathogens = rows.filter(row => {
+                    const humanPathogen = String(row.HUMAN_PATHOGEN || '').trim().toLowerCase();
+                    return humanPathogen === 'yes' || hasPathogenicInfo(row.PATHOGENIC_INFO);
+                }).length;
+
+                return {
+                    rows: rows.length,
+                    reads,
+                    meanSni,
+                    pathogens,
+                    pathogenRate: rows.length ? pathogens / rows.length : 0
+                };
+            });
+            const activeFilterLabel = computed(() => {
+                const selectedCount = selectedLevels.value && selectedLevels.value.length
+                    ? selectedLevels.value.length
+                    : levels.length;
+                const pieces = [
+                    `${selectedCount} levels`,
+                    `RC >= ${formatNumber(rcMin.value)}`,
+                    `SNI >= ${formatDecimal(sniMin.value, 2)}`
+                ];
+                if (showValidOnly.value) pieces.push('qualified');
+                if (showPathogenicOnly.value) pieces.push('pathogen');
+                return pieces.join(', ');
+            });
+            const sankeySummary = computed(() => {
+                return `${formatNumber(summaryStats.value.rows)} taxa with ${formatNumber(summaryStats.value.reads)} reads`;
+            });
+            const levelColorLegend = computed(() => {
+                return availableLevels.value.map((item, index) => ({
+                    ...item,
+                    level: item.value,
+                    color: getLevelColor(item.value, 1, index)
+                }));
+            });
+
             function formatCellValue(value, type) {
                 if (value === null || value === undefined) return '';
-                
+
                 if (type === 'numeric' && typeof value === 'number') {
-                    // Format numbers with appropriate decimal places
                     if (value % 1 === 0) {
                         return value.toLocaleString();
                     } else {
-                        return value.toLocaleString(undefined, { 
-                            minimumFractionDigits: 0, 
-                            maximumFractionDigits: 4 
+                        return value.toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 4
                         });
                     }
                 }
-                
+
                 return String(value);
             }
-            
+
+            function formatNumber(value) {
+                const number = Number(value);
+                return Number.isFinite(number) ? number.toLocaleString() : '0';
+            }
+
+            function formatDecimal(value, digits = 2) {
+                const number = Number(value);
+                return Number.isFinite(number) ? number.toFixed(digits) : '0';
+            }
+
+            function formatPercent(value) {
+                const number = Number(value);
+                return Number.isFinite(number)
+                    ? number.toLocaleString(undefined, { style: 'percent', maximumFractionDigits: 1 })
+                    : '0%';
+            }
+
+            function formatLevelLabel(level) {
+                if (level === null || level === undefined) return 'Unknown';
+                const value = String(level);
+                return value.charAt(0).toUpperCase() + value.slice(1);
+            }
+
             function updateTableData(newData) {
                 tableData.value = newData;
             }
@@ -406,10 +993,10 @@ function initVueApp() {
                 if (value === null || value === undefined) return null;
                 const normalized = String(value).trim().toLowerCase();
                 if (normalized === 'yes') {
-                    return { class: 'bg-danger', label: 'Pathogen' };
+                    return { class: 'pathogen-badge--yes', label: 'Pathogen' };
                 }
                 if (normalized === 'no') {
-                    return { class: 'bg-secondary', label: 'Pathogen' };
+                    return { class: 'pathogen-badge--watch', label: 'Info' };
                 }
                 return null;
             }
@@ -421,15 +1008,68 @@ function initVueApp() {
                 return `<div class="tooltip-table-wrap">${content}</div>`;
             }
 
+            function clearSearch() {
+                if (filters.value.global) {
+                    filters.value.global.value = null;
+                }
+            }
+
+            function resetFilters() {
+                selectedLevels.value = defaultLevels && defaultLevels.length > 0 ? [...defaultLevels] : [...levels];
+                rcMin.value = initialRcMin;
+                sniMin.value = initialSniMin;
+                showValidOnly.value = true;
+                showPathogenicOnly.value = false;
+                clearSearch();
+                nextTick(() => {
+                    if (typeof updateAll === 'function') {
+                        updateAll();
+                    }
+                });
+            }
+
+            function exportCsv() {
+                const rows = filteredTableData.value || [];
+                const fields = records.length > 0
+                    ? Object.keys(records[0]).filter(key => key !== 'PATHOGENIC_INFO')
+                    : [];
+                if (!rows.length || !fields.length) return;
+
+                const csvRows = [
+                    fields.map(escapeCsvValue).join(','),
+                    ...rows.map(row => fields.map(field => escapeCsvValue(row[field])).join(','))
+                ];
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const baseName = reportFilename.replace(/\.[^/.]+$/, '') || 'gottcha2-results';
+                link.href = url;
+                link.download = `${baseName}-filtered.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+
             watch([selectedLevels, rcMin, sniMin, showValidOnly, showPathogenicOnly], () => {
                 if (typeof updateAll === 'function') {
                     updateAll();
                 }
             });
-            
+            watch(activeView, () => {
+                nextTick(() => {
+                    if (typeof updateAll === 'function') {
+                        updateAll();
+                    }
+                });
+            });
+
             return {
                 tableData,
                 filters,
+                activeView,
+                viewOptions,
+                globalFilterFields,
                 selectedLevels,
                 rcMin,
                 sniMin,
@@ -438,10 +1078,22 @@ function initVueApp() {
                 levelOptions: availableLevels,
                 filteredTableData,
                 columns,
+                totalRecords,
+                summaryStats,
+                activeFilterLabel,
+                sankeySummary,
+                levelColorLegend,
                 formatCellValue,
+                formatNumber,
+                formatDecimal,
+                formatPercent,
+                formatLevelLabel,
                 updateTableData,
                 getPathogenBadge,
                 formatPathogenicTooltip,
+                clearSearch,
+                resetFilters,
+                exportCsv,
             };
         },
     });
@@ -533,6 +1185,37 @@ function hasPathogenicInfo(info) {
   return Boolean(info);
 }
 
+function escapeCsvValue(value) {
+  if (value === null || value === undefined) return '';
+  const text = String(value).replace(/\r?\n/g, ' ');
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function normalizeLevel(level) {
+  return String(level || '').trim().toLowerCase();
+}
+
+function hexToRgba(hex, alpha) {
+  const value = hex.replace('#', '');
+  const red = parseInt(value.substring(0, 2), 16);
+  const green = parseInt(value.substring(2, 4), 16);
+  const blue = parseInt(value.substring(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function getLevelColor(level, alpha = 1, fallbackIndex = 0) {
+  const normalized = normalizeLevel(level);
+  const hex = levelColorMap[normalized] || fallbackLevelColors[fallbackIndex % fallbackLevelColors.length];
+  return alpha >= 1 ? hex : hexToRgba(hex, alpha);
+}
+
+function isElementVisible(element) {
+  return !!(element && element.offsetParent !== null && element.clientWidth > 0 && element.clientHeight > 0);
+}
+
 function updateAll() {
   const state = getFilterState();
 
@@ -570,64 +1253,98 @@ function updateAll() {
     r.SNI_SCORE   >= sniMin
   );
 
-  // Rebuild Sankey diagram
-  // Filter out records with missing PARENT_NAME or NAME for Sankey to prevent errors
+  if (vueApp && vueApp.updateTableData) {
+    vueApp.updateTableData(filteredData);
+  }
+
+  const sankeyEl = document.getElementById('sankey');
+  if (!isElementVisible(sankeyEl)) {
+    return;
+  }
+
   const sankeyData = filteredData.filter(r => r.PARENT_NAME != null && r.NAME != null);
   const labels = Array.from(new Set(sankeyData.flatMap(r=>[r.PARENT_NAME,r.NAME])));
   const labelIndex = new Map(labels.map((label, idx) => [label, idx]));
-  const source=[], target=[], value=[];
+  const nodeLevels = new Map();
+  sankeyData.forEach(r => {
+    if (r.NAME != null) nodeLevels.set(r.NAME, r.LEVEL);
+    if (r.PARENT_NAME != null && !nodeLevels.has(r.PARENT_NAME)) nodeLevels.set(r.PARENT_NAME, r.PARENT_LEVEL || '');
+  });
+
+  const source=[], target=[], value=[], linkColor=[], customData=[];
   sankeyData.forEach(r => {
     const sourceIndex = labelIndex.get(r.PARENT_NAME);
     const targetIndex = labelIndex.get(r.NAME);
     const depthValue = Number(r.DEPTH);
-    // Only push if both source and target labels were found and depth is numeric
     if (sourceIndex !== undefined && targetIndex !== undefined && Number.isFinite(depthValue)) {
         source.push(sourceIndex);
         target.push(targetIndex);
         value.push(depthValue);
+        linkColor.push(getLevelColor(r.LEVEL, 0.28, source.length));
+        customData.push([r.LEVEL || '', Number(r.READ_COUNT) || 0, Number(r.SNI_SCORE) || 0]);
     }
   });
 
   const sankeyLayout = {
-    font: { size: 10 },
-    margin: { l: 20, r: 20, t: 10, b: 10 },
-    height: document.getElementById('sankey').clientHeight,
-    width: document.getElementById('sankey').clientWidth
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, Arial, sans-serif', size: 11, color: '#263440' },
+    margin: { l: 22, r: 22, t: 18, b: 18 },
+    height: Math.max(sankeyEl.clientHeight, 420),
+    width: Math.max(sankeyEl.clientWidth, 320),
+    annotations: source.length === 0 ? [{
+      text: 'No flow records match the current filters.',
+      x: 0.5,
+      y: 0.5,
+      xref: 'paper',
+      yref: 'paper',
+      showarrow: false,
+      font: { size: 15, color: '#617080' }
+    }] : []
   };
 
+  if (source.length === 0) {
+    Plotly.react('sankey', [], sankeyLayout, plotConfig);
+    return;
+  }
+
+  const nodeColor = labels.map((label, index) => getLevelColor(nodeLevels.get(label), 0.9, index));
   Plotly.react('sankey',[{
     type:'sankey',
     orientation:'h',
+    arrangement: 'snap',
     node: {
-      pad:15,
-      thickness:20,
-      line:{color:'black',width:0.5},
+      pad:18,
+      thickness:18,
+      line:{color:'rgba(24,33,47,0.22)',width:0.7},
       label:labels,
+      color: nodeColor,
       textposition:'outside',
+      hovertemplate: '%{label}<extra></extra>'
     },
-    link: { source,target,value }
-  }], sankeyLayout);
-
-  // Update Vue table with filtered data
-  if (vueApp && vueApp.updateTableData) {
-    vueApp.updateTableData(filteredData);
-  }
+    link: {
+      source,target,value,
+      color: linkColor,
+      customdata: customData,
+      hovertemplate: '%{source.label} to %{target.label}<br>Depth: %{value:.4f}<br>Level: %{customdata[0]}<br>Read count: %{customdata[1]:,.0f}<br>SNI: %{customdata[2]:.4f}<extra></extra>'
+    }
+  }], sankeyLayout, plotConfig);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize Vue app
-  const vueAppInstance = initVueApp();
-  
-  // Initialize empty Sankey then first draw
-  Plotly.newPlot('sankey', []); // Initialize with empty data and layout
-  updateAll(); // Call once to populate with initial filters
+  initVueApp();
 
-  // Optional: Resize Plotly chart when window resizes
+  Plotly.newPlot('sankey', [], {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    margin: { l: 22, r: 22, t: 18, b: 18 }
+  }, plotConfig);
+  updateAll();
+
+  let resizeTimer = null;
   window.addEventListener('resize', function() {
-    // Check if the Plotly chart div has content (i.e., Plotly initialized)
-    if (document.getElementById('sankey').children.length > 0) {
-        Plotly.Plots.resize(document.getElementById('sankey'));
-    }
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(updateAll, 120);
   });
 });
 </script>
@@ -731,6 +1448,7 @@ def main():
         default_levels = levels[:]
 
     HTML_TEMPLATE = HTML_TEMPLATE.replace('TSVFILENAME', tsv_filename)
+    HTML_TEMPLATE = HTML_TEMPLATE.replace('REPORT_FILENAME_JSON', json.dumps(tsv_filename))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('RECORDS', json.dumps(records, allow_nan=False))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('DEFAULT_LEVELS_JSON', json.dumps(default_levels))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('LEVELS_JSON', json.dumps(levels))
@@ -771,7 +1489,7 @@ def main():
     else:
         html_content = HTML_TEMPLATE
 
-    # html_content = minify_html.minify(html_content)
+    html_content = minify_html.minify(html_content)
 
     # --- Write output HTML ---
     with open(OUTPUT_HTML, 'w', encoding='utf-8') as f:

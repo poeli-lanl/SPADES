@@ -51,7 +51,7 @@ require_dir() {
 
 info "Checking SPADES installation from $REPO_DIR"
 
-for cmd in gottcha2 fastp fastplong samtools sylph ktImportTaxonomy minimap2; do
+for cmd in gottcha2 fastp fastplong samtools sylph ktImportTaxonomy minimap2 bcftools; do
   require_command "$cmd"
 done
 
@@ -83,8 +83,8 @@ fi
 
 require_file "$REPO_DIR/data/pathogen.tsv"
 require_dir "$REPO_DIR/data/taxonomy_db"
-require_file "$REPO_DIR/data/taxonomy_db/names.dmp"
-require_file "$REPO_DIR/data/taxonomy_db/nodes.dmp"
+# require_file "$REPO_DIR/data/taxonomy_db/names.dmp"
+# require_file "$REPO_DIR/data/taxonomy_db/nodes.dmp"
 
 if [[ -n "${CONDA_PREFIX:-}" ]]; then
   KRONA_TAXONOMY="$CONDA_PREFIX/opt/krona/taxonomy"

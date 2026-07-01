@@ -503,6 +503,7 @@ after_run() {
     "$intermediate_dir/$PREFIX.krona.html"
     "$intermediate_dir/$PREFIX.qc.fastq.gz.html"
     "$intermediate_dir/$PREFIX.pathogen.tsv"
+    "$intermediate_dir/$PREFIX.pathogen.summary.txt"
     "$intermediate_dir/$PREFIX.pathogen.full.tsv"
     "$intermediate_dir/$PREFIX.pathogen.full.html"
     "$intermediate_dir/$PREFIX.coverage.html"

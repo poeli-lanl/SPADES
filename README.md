@@ -119,46 +119,9 @@ The pipeline writes results to the output directory. Final outputs are kept in t
 
 If no qualifying GOTTCHA2 hits are found, the script creates placeholder outputs so downstream steps still receive expected files and then exits cleanly.
 
-### GOTTCHA2 Full Report Fields
+### GOTTCHA2 Full Report
 
-The GOTTCHA2 full report contains detailed information about the taxonomic profiling results. This document describes all 26 columns in the full report.
-
-| Field Name             | Description                                                                                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| LEVEL                  | Taxonomic level (major levels from superkingdom to strain)                                                                  |
-| NAME                   | Name of the taxon                                                                                                           |
-| TAXID                  | NCBI Taxonomy ID                                                                                                            |
-| READ_COUNT             | Number of reads mapped to this taxon                                                                                        |
-| TOTAL_BP_MAPPED        | Total number of base pairs mapped to this taxon’s signatures                                                                |
-| SNI_SCORE              | Signature Nucleotide Identity (SNI) score estimated from mapped signatures (default 0.95 for species, 0.99 for strains)     |
-| COVERED_SIG_LEN        | Total length of mapped signature regions (formerly “linear coverage”)                                                       |
-| BEST_SIG_COV           | Highest signature coverage observed (SIG_COV) at strain level                                                               |
-| DEPTH                  | Depth of coverage (TOTAL_BP_MAPPED / TOTAL_SIG_LEN)                                                                         |
-| REL_ABUNDANCE          | Relative abundance calculated using the specified abundance field (default: DEPTH)                                          |
-| PARENT_NAME            | Name of the parent taxon                                                                                                    |
-| PARENT_TAXID           | NCBI Taxonomy ID of the parent taxon                                                                                        |
-| TOTAL_READ_LEN         | Total length of the mapped reads                                                                                            |
-| READ_IDT               | Mapping identity (commonly (TOTAL_BP_MAPPED − TOTAL_BP_MISMATCH) / TOTAL_READ_LEN; may also account for indels if reported) |
-| TOTAL_BP_MISMATCH      | Total number of base-pair mismatches in the alignments                                                                      |
-| TOTAL_BP_INDEL         | Total number of base pairs involved in insertions/deletions (indels) in the alignments                                      |
-| SNI_NAIVE              | “Naive” SNI estimate (unadjusted identity estimate, as reported by the tool)                                                |
-| SNI_CI95_LH            | 95% confidence interval bounds for SNI (low/high, as reported)                                                              |
-| SIG_COV                | Signature coverage (COVERED_SIG_LEN / TOTAL_SIG_LEN)                                                                        |
-| MAPPED_SIG_LEN         | Total length of signature fragments that had at least one read mapped                                                       |
-| TOTAL_SIG_LEN          | Total length of all signature sequences for this taxon                                                                      |
-| COVERED_SIG_DEPTH      | Depth over covered regions only (TOTAL_BP_MAPPED / COVERED_SIG_LEN)                                                         |
-| COVERED_MAPPED_SIG_COV | Ratio of covered signature length to mapped signature length (COVERED_SIG_LEN / MAPPED_SIG_LEN)                             |
-| ZSCORE                 | Estimated Z-score for depth distribution (coverage uniformity indicator; lower is better)                                   |
-| GENOMIC_CONTENT_EST    | Estimated genomic content scaled by genome size (commonly TOTAL_BP_MAPPED / TOTAL_SIG_LEN × GENOME_SIZE)                    |
-| ABUNDANCE              | Raw abundance value (from the specified column used for REL_ABUNDANCE calculation)                                          |
-| REL_ABUNDANCE_DEPTH    | Relative abundance calculated using depth of coverage                                                                       |
-| REL_ABUNDANCE_GC       | Relative abundance calculated using genomic content estimate                                                                |
-| SIG_LEVEL              | Taxonomic level of the signatures used for mapping                                                                          |
-| GENOME_COUNT           | Number of reference genomes rolled up into this taxon                                                                       |
-| GENOME_SIZE            | Combined size of the original genomes for this taxon                                                                        |
-| NOTE                   | Additional information, including reasons for filtering if applicable                                                       |
-| HUMAN_PATHOGEN         | Yes / No                                                                                                                    |
-| PATHOGENIC_INFO        | Display pathogenic information of the taxa                                                                                  |
+See [tutorial.md](GOTTCHA2-main/docs/tutorial.md) for details about GOTTCHA2 results.
 
 ## Example
 

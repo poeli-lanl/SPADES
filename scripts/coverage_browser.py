@@ -597,7 +597,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div id="app" class="app-shell">
         <header class="app-header">
             <div>
-                <p class="eyebrow">Coverage browser</p>
+                <p class="eyebrow">SPADES-GOTTCHA2</p>
                 <h1>Genome Signature Browser</h1>
                 <p class="header-subtitle" v-if="currentGenome">
                     {{ currentGenome.name }}<span v-if="currentGenome.parentName"> ({{ currentGenome.parentName }})</span> - {{ currentGenome.taxid }}

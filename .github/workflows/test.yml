@@ -1,0 +1,69 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v3.1.0
+      with:
+        auto-update-conda: true
+        python-version: "3.12"
+        environment-file: environment.yml
+        activate-environment: spades
+        auto-activate-base: false
+    
+    - name: Verify Conda environment
+      shell: bash -el {0}
+      run: |
+        conda info
+        conda list
+    
+    - name: Run post-install script
+      shell: bash -el {0}
+      run: |
+        ./post_install.sh
+    
+    - name: Run installation check
+      shell: bash -el {0}
+      run: |
+        ./scripts/check_install.sh
+    
+    - name: Download test database
+      shell: bash -el {0}
+      working-directory: test
+      run: |
+        # Download small test database if available
+        # This step can be customized based on where your test database is hosted
+        if [ -f "download_test_db.sh" ]; then
+          ./download_test_db.sh
+        fi
+    
+    - name: Run test suite
+      shell: bash -el {0}
+      working-directory: test
+      run: |
+        if [ -f "test_run.sh" ]; then
+          ./test_run.sh
+        else
+          echo "No test_run.sh found, skipping test execution"
+        fi
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: test/output/
+        retention-days: 7

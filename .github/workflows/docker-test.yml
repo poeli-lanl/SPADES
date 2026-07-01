@@ -1,0 +1,46 @@
+name: Docker Build Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'Dockerfile'
+      - 'environment.yml'
+      - 'post_install.sh'
+      - '.github/workflows/docker-test.yml'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'Dockerfile'
+      - 'environment.yml'
+      - 'post_install.sh'
+  workflow_dispatch:
+
+jobs:
+  docker-build-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image (test only)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        load: true
+        tags: spades-g2:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm spades-g2:test ./scripts/check_install.sh
+    
+    - name: Check Docker image size
+      run: |
+        docker images spades-g2:test --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"

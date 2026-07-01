@@ -1,0 +1,79 @@
+name: Build and Push Docker Image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag'
+        required: true
+        default: 'latest'
+
+env:
+  DOCKER_IMAGE: poeli/spades-g2
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    
+    - name: Extract version from release
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "release" ]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.DOCKER_IMAGE }}:${VERSION},${{ env.DOCKER_IMAGE }}:latest" >> $GITHUB_OUTPUT
+        else
+          VERSION=${{ github.event.inputs.tag }}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tags=${{ env.DOCKER_IMAGE }}:${VERSION}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Build and push Docker image (AMD64)
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.version.outputs.tags }}
+        labels: |
+          org.opencontainers.image.title=SPADES-G2
+          org.opencontainers.image.description=Sequence-based Pathogen-Agnostic Diagnostics/Detection Solution
+          org.opencontainers.image.version=${{ steps.version.outputs.version }}
+          org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+        cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
+        cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm ${{ env.DOCKER_IMAGE }}:${{ steps.version.outputs.version }} ./scripts/check_install.sh
+    
+    - name: Create Docker Hub description
+      uses: peter-evans/dockerhub-description@v4.0.0
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        repository: ${{ env.DOCKER_IMAGE }}
+        readme-filepath: ./README.md
+        short-description: "SPADES: Sequence-based Pathogen-Agnostic Diagnostics/Detection Solution with GOTTCHA2"

@@ -1,0 +1,19 @@
+GCF_000855585.1	8	3052460	strain	Sudan ebolavirus strain Gulu Sudan virus/H.sapiens-tc/UGA/2000/Gulu-808892
+GCF_000888475.1	8	3052461	strain	Tai Forest ebolavirus Tai Forest virus/H.sapiens-tc/CIV/1994/Pauleoula-CI
+GCF_000889155.1	8	3052458	strain	Bundibugyo ebolavirus Bundibugyo virus/H.sapiens-tc/UGA/2007/Butalya-811250
+GCF_000854085.1	8	3052459	strain	Reston ebolavirus strain Pennsylvania Reston virus/M.fascicularis-tc/USA/1989/Philippines89-Pennsylvania
+GCF_000848505.1	8	3052462	strain	Zaire ebolavirus strain Mayinga Ebola virus/H.sapiens-tc/COD/1976/Yambuku-Mayinga
+GCF_003505815.1	8	3052457	strain	Bombali ebolavirus Bombali ebolavirus/Mops condylurus/SLE/2016/PREDICT_SLAB000156
+3052457	7	3044781	species	Orthoebolavirus bombaliense
+3052460	7	3044781	species	Orthoebolavirus sudanense
+3052458	7	3044781	species	Orthoebolavirus bundibugyoense
+3052459	7	3044781	species	Orthoebolavirus restonense
+3052461	7	3044781	species	Orthoebolavirus taiense
+3052462	7	3044781	species	Orthoebolavirus zairense
+3044781	6	11266	genus	Orthoebolavirus
+11266	5	11157	family	Filoviridae
+11157	4	2497574	order	Mononegavirales
+2497574	3	2497569	class	Monjiviricetes
+2497569	2	10239	phylum	Negarnaviricota
+10239	1	1	superkingdom	Viruses
+1	0	1	root	root

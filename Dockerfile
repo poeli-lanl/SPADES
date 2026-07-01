@@ -7,7 +7,7 @@ WORKDIR /tmp/build
 
 COPY --chown=${MAMBA_USER}:${MAMBA_USER} environment.yml ./environment.yml
 COPY --chown=${MAMBA_USER}:${MAMBA_USER} GOTTCHA2-main/ ./GOTTCHA2-main/
-RUN micromamba env create -y -n spades -c conda-forge -c bioconda -f environment.yml \
+RUN micromamba env create -y -n spades -f environment.yml \
     && micromamba clean -a -y
 
 FROM debian:bookworm-slim

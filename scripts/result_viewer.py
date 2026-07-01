@@ -736,7 +736,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div id="app" v-cloak>
         <header class="report-header">
             <div>
-                <div class="eyebrow">GOTTCHA2 result viewer</div>
+                <div class="eyebrow">SPADES-GOTTCHA2</div>
                 <h1>REPORT_TITLE</h1>
                 <div class="header-meta">
                     <span class="meta-pill"><i class="pi pi-database"></i>{{ formatNumber(totalRecords) }} rows</span>

@@ -485,18 +485,47 @@ after_run() {
     log_error "Failed to record pipeline metadata (exit $status)."
   fi
 
+  # Organize output files: move all to intermediate_dir, then move final outputs back
+  log_start "Organizing output directory..."
+  
+  local intermediate_dir="$OUTDIR/intermediate"
+  mkdir -p "$intermediate_dir"
+  local move_status=0
+  
+  # Move all files matching the prefix to intermediate directory
+  for f in "$OUTDIR/$PREFIX".*; do
+    [[ -e "$f" ]] && mv "$f" "$intermediate_dir/" || move_status=$?
+  done
+  
+  # List of final output files to move back to $OUTDIR
+  local final_outputs=(
+    "$intermediate_dir/$PREFIX.info"
+    "$intermediate_dir/$PREFIX.krona.html"
+    "$intermediate_dir/$PREFIX.qc.fastq.gz.html"
+    "$intermediate_dir/$PREFIX.pathogen.tsv"
+    "$intermediate_dir/$PREFIX.pathogen.full.tsv"
+    "$intermediate_dir/$PREFIX.pathogen.full.html"
+    "$intermediate_dir/$PREFIX.coverage.html"
+  )
+  
+  # Move final outputs back to main output directory
+  for file in "${final_outputs[@]}"; do
+    if [[ -e "$file" ]]; then
+      mv "$file" "$OUTDIR/" || move_status=$?
+    fi
+  done
+  
+  if [[ $move_status -eq 0 ]]; then
+    log_success "Output files organized: final outputs in '$OUTDIR', intermediate files in '$intermediate_dir'."
+  else
+    log_error "Some files could not be moved (continuing anyway)."
+  fi
+  
+  # If --clean flag is set, remove the intermediate directory entirely
   if [[ "$CLEAN_FLAG" == "true" ]]; then
-    log_start "Cleaning up intermediate files..."
-    rm -f \
-      "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.sam" \
-      "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.sam.temp" \
-      "$OUTDIR/$PREFIX.split_reads.fasta.gz" \
-      "$OUTDIR/$PREFIX.sylph_*" \
-      "$INPUT_QC" \
-      "$INPUT_QC_R1" \
-      "$INPUT_QC_R2"
-
-    log_success "Cleanup completed."
+    log_start "Cleaning up intermediate files (--clean flag set)..."
+    rm -rf "$intermediate_dir"
+    log_success "Intermediate files cleaned up."
   fi
 
   return $status

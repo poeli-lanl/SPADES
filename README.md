@@ -11,7 +11,7 @@ The SPADES (Sequence-based Pathogen-Agnostic Diagnostics/Detection Solution) pro
 
 ## Setup
 
-### Local Conda/Mamba
+### Local Conda
 
 ```bash
 mamba env create -f environment.yml
@@ -74,26 +74,48 @@ Options:
 - `--spades-data` Directory containing `taxonomy_db/` and `pathogen.tsv` (default: `data/`)
 - `--ont` Treat input as long reads; pre-processes with `fastplong`, splits to 150 bp, and passes relaxed error rate flags to GOTTCHA2
 - `--ont-error-rate` Error rate for ONT reads passed to GOTTCHA2 (`-er`), default: `0.03`
-- `--js-external` Use CDN-hosted JavaScript/CSS assets in generated HTML reports (required for local used)
-- `--clean` Remove large intermediates (SAM, QC FASTQ, split FASTA) after the run
+- `--js-external` Use CDN-hosted JavaScript/CSS assets in generated HTML reports (required for local use)
+- `--clean` Remove intermediate files after the run (see Outputs section for details)
+- `--min-depth` Minimum depth for variant calling (default: 10)
 - `--version` Show script version and exit
 - `-h, --help` Show usage
 
 ## Outputs
 
-The pipeline writes results to the output directory, including:
+The pipeline writes results to the output directory. Final outputs are kept in the main output directory, while intermediate files are organized in an `intermediate/` subdirectory for debugging purposes.
+
+### Final Outputs (in `<outdir>/`)
+
+- `<prefix>.info` Pipeline metadata (versions, database path, parameters)
+- `<prefix>.krona.html` Interactive Krona taxonomic plot
+- `<prefix>.qc.fastq.gz.html` FastP/FastPlong QC report
+- `<prefix>.pathogen.tsv` Pathogen-annotated GOTTCHA2 hits (qualified taxa only)
+- `<prefix>.pathogen.summary.txt` Pathogen detection summary text log
+- `<prefix>.pathogen.summary.tsv` Genus/species level pathogen data for quick inspection
+- `<prefix>.pathogen.full.tsv` Pathogen annotations for all detected taxa
+- `<prefix>.pathogen.full.html` Interactive result viewer with filtering and visualization
+- `<prefix>.coverage.html` Interactive coverage browser with variant information
+
+### Intermediate Files (in `<outdir>/intermediate/`)
+
 - `<prefix>.tsv` GOTTCHA2 profiling result table (filtered)
-- `<prefix>.full.tsv` GOTTCHA2 full profiling output file
-- `<prefix>.krona.html` Krona plot
-- `<prefix>.pathogen.tsv` Pathogen-annotated hits
-- `<prefix>.pathogen.summary.txt` Pathogen summary log
-- `<prefix>.pathogen.summary.tsv` Genus/species subset for quick inspection
-- `<prefix>.pathogen.full.tsv` Pathogen annotations for all taxa
-- `<prefix>.pathogen.full.html` Interactive result viewer
-- `<prefix>.coverage.html` Coverage browser
-- `<prefix>.gottcha_<dbLevel>.sam/.bam` Alignment files (supplementary)
-- `<prefix>.gottcha_<dbLevel>.coverage.tsv` Coverage summary (supplementary)
-- `<prefix>.info` Pipeline metadata (GOTTCHA2 version)
+- `<prefix>.full.tsv` GOTTCHA2 full profiling output
+- `<prefix>.gottcha_<dbLevel>.bam` Alignment file (with index)
+- `<prefix>.gottcha_<dbLevel>.sam` SAM alignment (if produced)
+- `<prefix>.gottcha_<dbLevel>.vcf.gz` Variant calls (with index)
+- `<prefix>.gottcha_<dbLevel>.coverage.tsv` Coverage summary table
+- `<prefix>.qc.fastq.gz` (or `R1/R2`) Quality-controlled reads
+- `<prefix>.qc.fastq.gz.json` FastP/FastPlong JSON report
+- `<prefix>.split_reads.fasta.gz` Split reads (ONT mode)
+- `<prefix>.mpa.tsv` MetaPhlAn-compatible output
+- `<prefix>.lineage.tsv` Lineage information
+- `<prefix>.sylph_*` Sylph extraction files
+- Reference FASTA files used for alignment
+
+### Cleanup Behavior
+
+- **Default** (no `--clean`): All files are preserved. Final outputs remain in `<outdir>/` for easy access, while intermediate files are moved to `<outdir>/intermediate/` for debugging and downstream analysis.
+- **With `--clean`**: The `intermediate/` directory and all its contents are deleted after the pipeline completes, leaving only the final output files in `<outdir>/`.
 
 If no qualifying GOTTCHA2 hits are found, the script creates placeholder outputs so downstream steps still receive expected files and then exits cleanly.
 
@@ -153,7 +175,8 @@ This runs a small ONT example using files under `test/` and the bundled data in
 - The script exports its own `scripts/` folder onto `PATH` and defaults `--spades-data` to `data/` next to the script.
 - Use `--js-external` when opening generated HTML reports directly from disk or from an environment that does not provide local `/publicdata` JavaScript/CSS assets.
 - `--ont` uses `fastplong`, splits reads to 150 bp, and passes the error rate to GOTTCHA2 (`--ont-error-rate`, default `0.03`). Suggesting values: `0.05` for legacy R9.4.1 (HAC/SUP), `0.01` for R10.4.1 (Simplex/SUP), and `0.001` for R10.4.1 (Duplex/SUP).
-- `--clean` removes large intermediates (`*.sam`, QC FASTQ, split FASTA, and fast-profile Sylph extraction files) after a successful run.
+- `--clean` removes the `intermediate/` directory after a successful run, keeping only final output files in the main output directory. Without `--clean`, all intermediate files are preserved in `intermediate/` for debugging.
+- `--min-depth` sets the minimum depth threshold for variant calling in the coverage browser (default: 10).
 - Ensure the database path points to the base file (e.g. `gottcha_db.species.fna`) and that the corresponding `.syldb`, `.zip`, `.stats`, and `.tax.tsv` exist.
 
 ## Notice of Copyright Assertion (O4958)

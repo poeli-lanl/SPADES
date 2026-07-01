@@ -11,12 +11,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GOTTCHA2: TSVFILENAME</title>
+  <title>GOTTCHA2: REPORT_TITLE</title>
   
   <script src="/publicdata/js/vue.global.prod.js"></script>
   <script src="/publicdata/js/primevue.min.js"></script>
   <script src="/publicdata/js/aura.js"></script>
-  <script src="/publicdata/js/plotly-3.0.1.min.js" charset="utf-8"></script>
+  <script src="/publicdata/js/d3.v7.min.js"></script>
 
   <link href="/publicdata/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/publicdata/css/primeicons.css">
@@ -227,11 +227,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     .filter-switch {
-        min-height: 42px;
+        min-height: 35px;
         display: flex;
         align-items: center;
         gap: 9px;
-        border: 1px solid var(--line);
+        border: 0px solid var(--line);
         border-radius: 7px;
         background: var(--surface);
         padding: 0 12px 0 2.55rem;
@@ -246,6 +246,38 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         cursor: pointer;
         font-size: 0.92rem;
         font-weight: 700;
+    }
+
+    .form-check-note {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.88rem;
+    }
+
+    .info-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin-left: 6px;
+        color: #ffffff;
+        font-size: 0.75rem;
+        font-weight: 900;
+        font-style: normal;
+        border: 1.5px solid var(--accent);
+        background: var(--accent);
+        border-radius: 50%;
+        cursor: help;
+        transition: all 150ms ease;
+        vertical-align: middle;
+    }
+
+    .info-icon:hover {
+        background: var(--accent);
+        color: #ffffff;
+        transform: scale(1.1);
+        margin: 2px;
     }
 
     .control-actions {
@@ -319,8 +351,123 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     #sankey {
+        position: relative;
         width: 100%;
         height: clamp(440px, 60vh, 790px);
+        overflow: hidden;
+        background: #eef4f7;
+    }
+
+    #sankey svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    .tax-flow-ribbon {
+        fill: none;
+        stroke-linecap: butt;
+        transition: opacity 160ms ease, stroke-opacity 160ms ease, stroke-width 160ms ease;
+    }
+
+    .tax-flow-ribbon.is-dimmed,
+    .tax-flow-node.is-dimmed,
+    .tax-flow-label.is-dimmed,
+    .tax-flow-value.is-dimmed {
+        opacity: 0.18;
+    }
+
+    .tax-flow-ribbon.is-active {
+        stroke-opacity: 0.78;
+    }
+
+    .tax-flow-node rect {
+        filter: drop-shadow(0 1px 2px rgba(24, 33, 47, 0.22));
+        transition: stroke-width 160ms ease, opacity 160ms ease;
+        stroke-linecap: butt;
+    }
+
+    .tax-flow-node.has-children {
+        cursor: pointer;
+    }
+
+    .tax-flow-node.is-active rect {
+        stroke-width: 2.2px;
+    }
+
+    .tax-flow-label,
+    .tax-flow-value,
+    .tax-flow-toggle,
+    .tax-flow-axis text {
+        fill: #111827;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        letter-spacing: 0;
+        paint-order: stroke;
+        stroke: rgba(238, 244, 247, 0.82);
+        stroke-linejoin: round;
+        stroke-width: 3px;
+    }
+
+    .tax-flow-label {
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .tax-flow-value,
+    .tax-flow-axis text {
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .tax-flow-toggle {
+        font-size: 11px;
+        font-weight: 900;
+        text-anchor: middle;
+    }
+
+    .tax-flow-axis line,
+    .tax-flow-axis path {
+        stroke: rgba(24, 33, 47, 0.58);
+        stroke-width: 1;
+        shape-rendering: crispEdges;
+    }
+
+    .tax-flow-empty {
+        display: grid;
+        min-height: 100%;
+        place-items: center;
+        color: var(--muted);
+        font-weight: 800;
+        padding: 24px;
+        text-align: center;
+    }
+
+    .tax-flow-tooltip {
+        position: absolute;
+        z-index: 5;
+        max-width: 280px;
+        pointer-events: none;
+        border: 1px solid rgba(24, 33, 47, 0.12);
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 12px 30px rgba(24, 33, 47, 0.16);
+        color: var(--ink);
+        font-size: 0.78rem;
+        line-height: 1.35;
+        opacity: 0;
+        padding: 9px 10px;
+        transform: translate(-50%, calc(-100% - 12px));
+        transition: opacity 120ms ease;
+    }
+
+    .tax-flow-tooltip.is-visible {
+        opacity: 1;
+    }
+
+    .tax-flow-tooltip strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.84rem;
     }
 
     .legend-strip {
@@ -590,7 +737,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <header class="report-header">
             <div>
                 <div class="eyebrow">GOTTCHA2 result viewer</div>
-                <h1>TSVFILENAME</h1>
+                <h1>REPORT_TITLE</h1>
                 <div class="header-meta">
                     <span class="meta-pill"><i class="pi pi-database"></i>{{ formatNumber(totalRecords) }} rows</span>
                     <span class="meta-pill"><i class="pi pi-sitemap"></i>{{ formatNumber(levelOptions.length) }} levels</span>
@@ -626,7 +773,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             <div class="metric-panel">
                 <div class="metric-label">Read count</div>
                 <div class="metric-value">{{ formatNumber(summaryStats.reads) }}</div>
-                <div class="metric-subtle">filtered total</div>
+                <div class="metric-subtle">qualified alignments</div>
             </div>
             <div class="metric-panel">
                 <div class="metric-label">Mean SNI</div>
@@ -678,7 +825,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 <div class="switch-stack">
                     <div class="form-check form-switch filter-switch">
                         <input type="checkbox" role="switch" id="showValidOnly" class="form-check-input" v-model="showValidOnly">
-                        <label for="showValidOnly" class="form-check-label">Qualified taxa only</label>
+                        <label for="showValidOnly" class="form-check-label">
+                            GOTTCHA2 profiling criteria passed
+                            <i class="info-icon" 
+                               v-bs-tooltip="{ title: 'SNI-score thresholds for others ≥ 0.9, species ≥ 0.95, strain ≥ 0.99' }">i</i>
+                        </label>
                     </div>
                     <div class="form-check form-switch filter-switch">
                         <input type="checkbox" role="switch" id="pathogenicOnly" class="form-check-input" v-model="showPathogenicOnly">
@@ -829,11 +980,20 @@ const levelColorMap = {
   strain: '#8d6e63'
 };
 const fallbackLevelColors = ['#197278', '#3f7cac', '#d89f2a', '#6a994e', '#d95d39', '#5e548e', '#2a9d8f', '#e76f51'];
-const plotConfig = {
-  responsive: true,
-  displaylogo: false,
-  modeBarButtonsToRemove: ['lasso2d', 'select2d']
-};
+const rankDefinitions = [
+  { level: 'superkingdom', label: 'Domain', code: 'D' },
+  { level: 'kingdom', label: 'Kingdom', code: 'K' },
+  { level: 'phylum', label: 'Phylum', code: 'P' },
+  { level: 'class', label: 'Class', code: 'C' },
+  { level: 'order', label: 'Order', code: 'O' },
+  { level: 'family', label: 'Family', code: 'F' },
+  { level: 'genus', label: 'Genus', code: 'G' },
+  { level: 'species', label: 'Species', code: 'S' },
+  { level: 'strain', label: 'Strain', code: 'N' }
+];
+const rankIndex = new Map(rankDefinitions.map((rank, index) => [rank.level, index]));
+const rootNames = new Set(['root', 'cellular organisms']);
+const collapsedTaxFlowNodes = new Set();
 
 let vueApp; // Vue app instance
 function initVueApp() {
@@ -896,7 +1056,21 @@ function initVueApp() {
             const totalRecords = computed(() => records.length);
             const summaryStats = computed(() => {
                 const rows = tableData.value || [];
-                const reads = rows.reduce((total, row) => {
+                const rankedRows = rows
+                    .map(row => ({
+                        row,
+                        rank: rankIndex.has(normalizeLevel(row.LEVEL))
+                            ? rankIndex.get(normalizeLevel(row.LEVEL))
+                            : Number.POSITIVE_INFINITY
+                    }))
+                    .filter(item => Number.isFinite(item.rank));
+                const mostSpecificRank = rankedRows.length
+                    ? Math.max(...rankedRows.map(item => item.rank))
+                    : null;
+                const readRows = mostSpecificRank === null
+                    ? []
+                    : rankedRows.filter(item => item.rank === mostSpecificRank).map(item => item.row);
+                const reads = readRows.reduce((total, row) => {
                     const value = Number(row.READ_COUNT);
                     return total + (Number.isFinite(value) ? value : 0);
                 }, 0);
@@ -914,6 +1088,7 @@ function initVueApp() {
                 return {
                     rows: rows.length,
                     reads,
+                    readLevel: mostSpecificRank === null ? '' : rankDefinitions[mostSpecificRank].label,
                     meanSni,
                     pathogens,
                     pathogenRate: rows.length ? pathogens / rows.length : 0
@@ -928,7 +1103,7 @@ function initVueApp() {
                     `RC >= ${formatNumber(rcMin.value)}`,
                     `SNI >= ${formatDecimal(sniMin.value, 2)}`
                 ];
-                if (showValidOnly.value) pieces.push('qualified');
+                if (showValidOnly.value) pieces.push('passed');
                 if (showPathogenicOnly.value) pieces.push('pathogen');
                 return pieces.join(', ');
             });
@@ -1020,6 +1195,7 @@ function initVueApp() {
                 sniMin.value = initialSniMin;
                 showValidOnly.value = true;
                 showPathogenicOnly.value = false;
+                collapsedTaxFlowNodes.clear();
                 clearSearch();
                 nextTick(() => {
                     if (typeof updateAll === 'function') {
@@ -1216,6 +1392,555 @@ function isElementVisible(element) {
   return !!(element && element.offsetParent !== null && element.clientWidth > 0 && element.clientHeight > 0);
 }
 
+function getRankInfo(level) {
+  const normalized = normalizeLevel(level);
+  return rankDefinitions.find(rank => rank.level === normalized) || {
+    level: normalized || 'unknown',
+    label: normalized || 'Unknown',
+    code: normalized ? normalized.charAt(0).toUpperCase() : '?'
+  };
+}
+
+function getParentLevel(level) {
+  const index = rankIndex.get(normalizeLevel(level));
+  if (index === undefined || index <= 0) return null;
+  return rankDefinitions[index - 1].level;
+}
+
+function isRootName(name) {
+  return rootNames.has(String(name || '').trim().toLowerCase());
+}
+
+function getMetricValue(row) {
+  const readCount = Number(row.READ_COUNT);
+  if (Number.isFinite(readCount) && readCount > 0) return readCount;
+  const depth = Number(row.DEPTH);
+  if (Number.isFinite(depth) && depth > 0) return depth;
+  return 1;
+}
+
+function formatCompactValue(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '0';
+  if (Math.abs(number) >= 1000000) return `${(number / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (Math.abs(number) >= 1000) return `${(number / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return number.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderEmptyFlow(container, message) {
+  container.innerHTML = '';
+  const empty = document.createElement('div');
+  empty.className = 'tax-flow-empty';
+  empty.textContent = message;
+  container.appendChild(empty);
+}
+
+function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
+  const container = document.getElementById('sankey');
+  if (!isElementVisible(container)) return;
+
+  if (typeof d3 === 'undefined') {
+    renderEmptyFlow(container, 'D3.js is required to render the taxonomic flow.');
+    return;
+  }
+
+  const rows = selectedRows.filter(row => row && row.NAME != null && row.LEVEL != null);
+  const ancestryRows = contextRows.filter(row => row && row.NAME != null && row.LEVEL != null);
+  if (!rows.length) {
+    renderEmptyFlow(container, 'No flow records match the current filters.');
+    return;
+  }
+
+  container.innerHTML = '';
+  const width = Math.max(container.clientWidth || 0, 720);
+  const height = Math.max(container.clientHeight || 0, 420);
+  const margin = {
+    top: 30,
+    right: width < 900 ? 132 : 210,
+    bottom: 44,
+    left: 30
+  };
+  const nodeWidth = 12;
+  const nodeGap = 16;
+  const innerHeight = Math.max(180, height - margin.top - margin.bottom);
+  const nodesByKey = new Map();
+  const linksByKey = new Map();
+  const rowsByNameKey = new Map();
+  const rowsByTaxidKey = new Map();
+
+  function rowNameKey(level, name) {
+    return `${normalizeLevel(level)}::${String(name || '').trim()}`;
+  }
+
+  function rowTaxidKey(level, taxid) {
+    return `${normalizeLevel(level)}::${String(taxid || '').trim()}`;
+  }
+
+  ancestryRows.forEach(row => {
+    const level = normalizeLevel(row.LEVEL);
+    if (!rankIndex.has(level)) return;
+    const name = String(row.NAME || '').trim();
+    const taxid = String(row.TAXID || '').trim();
+    if (name) rowsByNameKey.set(rowNameKey(level, name), row);
+    if (taxid) rowsByTaxidKey.set(rowTaxidKey(level, taxid), row);
+  });
+
+  function findContextRow(level, name, taxid) {
+    const normalizedLevel = normalizeLevel(level);
+    const cleanTaxid = String(taxid || '').trim();
+    const cleanName = String(name || '').trim();
+    if (cleanTaxid && rowsByTaxidKey.has(rowTaxidKey(normalizedLevel, cleanTaxid))) {
+      return rowsByTaxidKey.get(rowTaxidKey(normalizedLevel, cleanTaxid));
+    }
+    if (cleanName && rowsByNameKey.has(rowNameKey(normalizedLevel, cleanName))) {
+      return rowsByNameKey.get(rowNameKey(normalizedLevel, cleanName));
+    }
+    return null;
+  }
+
+  function findContextParentRow(row) {
+    if (!row) return null;
+    const currentRankIndex = rankIndex.get(normalizeLevel(row.LEVEL));
+    const parentName = row.PARENT_NAME == null ? '' : String(row.PARENT_NAME).trim();
+    if (currentRankIndex === undefined || !parentName || isRootName(parentName)) return null;
+
+    for (let index = currentRankIndex - 1; index >= 0; index -= 1) {
+      const parentLevel = rankDefinitions[index].level;
+      const parentRow = findContextRow(parentLevel, parentName, row.PARENT_TAXID);
+      if (parentRow) return parentRow;
+    }
+
+    return null;
+  }
+
+  function addNode(level, name, row, value) {
+    const rank = getRankInfo(level);
+    const safeName = String(name || '').trim();
+    const key = `${rank.level}::${safeName}`;
+    if (!safeName || !rankIndex.has(rank.level)) return null;
+
+    if (!nodesByKey.has(key)) {
+      nodesByKey.set(key, {
+        key,
+        name: safeName,
+        level: rank.level,
+        rank,
+        value: 0,
+        ownValue: 0,
+        rows: 0,
+        row: null,
+        taxid: row && row.TAXID != null ? row.TAXID : '',
+        pathogenic: false,
+        incoming: [],
+        outgoing: []
+      });
+    }
+
+    const node = nodesByKey.get(key);
+    node.ownValue = Math.max(node.ownValue, value);
+    node.value = Math.max(node.value, value);
+    node.rows += row ? 1 : 0;
+    if (row) node.row = row;
+    if (!node.taxid && row && row.TAXID != null) node.taxid = row.TAXID;
+    const humanPathogen = row && String(row.HUMAN_PATHOGEN || '').trim().toLowerCase();
+    node.pathogenic = node.pathogenic || humanPathogen === 'yes' || hasPathogenicInfo(row && row.PATHOGENIC_INFO);
+    return node;
+  }
+
+  function addLink(source, target, value) {
+    if (!source || !target || source.key === target.key) return;
+    const linkKey = `${source.key}->${target.key}`;
+    if (!linksByKey.has(linkKey)) {
+      linksByKey.set(linkKey, {
+        key: linkKey,
+        source,
+        target,
+        value: 0
+      });
+    }
+    linksByKey.get(linkKey).value += Math.max(Number(value) || 0, 1);
+  }
+
+  function findNearestVisibleAncestor(node) {
+    let row = node.row;
+    const visited = new Set();
+
+    while (row) {
+      const parentName = row.PARENT_NAME == null ? '' : String(row.PARENT_NAME).trim();
+      const parentTaxid = row.PARENT_TAXID == null ? '' : String(row.PARENT_TAXID).trim();
+      if (!parentName || isRootName(parentName)) return null;
+
+      const parentRow = findContextParentRow(row);
+      const parentLevel = parentRow ? normalizeLevel(parentRow.LEVEL) : getParentLevel(row.LEVEL);
+      if (!parentLevel) return null;
+      const displayName = parentRow && parentRow.NAME != null ? parentRow.NAME : parentName;
+      const parentKey = `${parentLevel}::${String(displayName || '').trim()}`;
+      if (nodesByKey.has(parentKey)) {
+        return nodesByKey.get(parentKey);
+      }
+
+      const visitKey = parentRow
+        ? rowNameKey(parentRow.LEVEL, parentRow.NAME)
+        : rowNameKey(parentLevel, parentName);
+      if (visited.has(visitKey)) return null;
+      visited.add(visitKey);
+
+      row = parentRow;
+    }
+
+    return null;
+  }
+
+  rows.forEach((row) => {
+    const level = normalizeLevel(row.LEVEL);
+    if (!rankIndex.has(level)) return;
+    const value = getMetricValue(row);
+    const target = addNode(level, row.NAME, row, value);
+    const parentName = row.PARENT_NAME == null ? '' : String(row.PARENT_NAME).trim();
+    const parentRow = findContextParentRow(row);
+    const parentLevel = parentRow ? normalizeLevel(parentRow.LEVEL) : getParentLevel(level);
+
+    if (!target || !parentName || isRootName(parentName) || !parentLevel) return;
+
+    if (parentRow) {
+      addNode(parentLevel, parentRow.NAME, parentRow, value);
+    } else {
+      addNode(parentLevel, parentName, null, value);
+    }
+  });
+
+  Array.from(nodesByKey.values()).forEach(node => {
+    const source = findNearestVisibleAncestor(node);
+    if (source) {
+      addLink(source, node, node.value || node.ownValue || 1);
+    }
+  });
+
+  const allNodes = Array.from(nodesByKey.values());
+  const allLinks = Array.from(linksByKey.values()).filter(link => link.source && link.target);
+  const currentNodeKeys = new Set(allNodes.map(node => node.key));
+  Array.from(collapsedTaxFlowNodes).forEach(key => {
+    if (!currentNodeKeys.has(key)) {
+      collapsedTaxFlowNodes.delete(key);
+    }
+  });
+
+  allNodes.forEach(node => {
+    node.hasChildren = allLinks.some(link => link.source.key === node.key);
+    node.isCollapsed = collapsedTaxFlowNodes.has(node.key);
+  });
+
+  const incomingByTargetKey = new Map();
+  allLinks.forEach(link => {
+    if (!incomingByTargetKey.has(link.target.key)) {
+      incomingByTargetKey.set(link.target.key, []);
+    }
+    incomingByTargetKey.get(link.target.key).push(link);
+  });
+
+  function hasCollapsedAncestor(node) {
+    const visited = new Set();
+    const stack = [...(incomingByTargetKey.get(node.key) || []).map(link => link.source)];
+
+    while (stack.length) {
+      const ancestor = stack.pop();
+      if (!ancestor || visited.has(ancestor.key)) continue;
+      if (collapsedTaxFlowNodes.has(ancestor.key)) return true;
+      visited.add(ancestor.key);
+      stack.push(...(incomingByTargetKey.get(ancestor.key) || []).map(link => link.source));
+    }
+
+    return false;
+  }
+
+  const nodes = allNodes.filter(node => !hasCollapsedAncestor(node));
+  const visibleNodeKeys = new Set(nodes.map(node => node.key));
+  const links = allLinks.filter(link => visibleNodeKeys.has(link.source.key) && visibleNodeKeys.has(link.target.key));
+
+  if (!nodes.length) {
+    renderEmptyFlow(container, 'No flow records match the current filters.');
+    return;
+  }
+
+  links.forEach(link => {
+    link.source.outgoing.push(link);
+    link.target.incoming.push(link);
+  });
+
+  nodes.forEach(node => {
+    const incomingValue = d3.sum(node.incoming, link => link.value);
+    const outgoingValue = d3.sum(node.outgoing, link => link.value);
+    node.value = Math.max(node.value, incomingValue, outgoingValue, 1);
+  });
+
+  const visibleRanks = rankDefinitions.filter(rank => nodes.some(node => node.level === rank.level));
+  const xScale = d3.scalePoint()
+    .domain(visibleRanks.map(rank => rank.level))
+    .range([margin.left, Math.max(margin.left, width - margin.right)])
+    .padding(visibleRanks.length > 1 ? 0.25 : 0.5);
+  const maxNodeValue = d3.max(nodes, node => node.value) || 1;
+  const baseHeight = d3.scaleSqrt()
+    .domain([0, maxNodeValue])
+    .range([12, Math.min(68, innerHeight * 0.2)]);
+  const nodesByRank = d3.group(nodes, node => node.level);
+
+  visibleRanks.forEach(rank => {
+    const rankNodes = (nodesByRank.get(rank.level) || [])
+      .sort((a, b) => d3.descending(a.value, b.value) || d3.ascending(a.name, b.name));
+
+    rankNodes.forEach(node => {
+      const fanout = Math.max(node.incoming.length, node.outgoing.length, 1);
+      node.height = Math.max(baseHeight(node.value), fanout * 8);
+    });
+
+    let gap = nodeGap;
+    let totalHeight = d3.sum(rankNodes, node => node.height) + Math.max(0, rankNodes.length - 1) * gap;
+    if (totalHeight > innerHeight) {
+      const compression = innerHeight / totalHeight;
+      gap = Math.max(4, gap * compression);
+      rankNodes.forEach(node => {
+        node.height = Math.max(7, node.height * compression);
+      });
+      totalHeight = d3.sum(rankNodes, node => node.height) + Math.max(0, rankNodes.length - 1) * gap;
+    }
+
+    let y = margin.top + Math.max(0, (innerHeight - totalHeight) / 2);
+    rankNodes.forEach(node => {
+      node.x = xScale(rank.level);
+      node.y0 = y;
+      node.y1 = y + node.height;
+      node.cy = node.y0 + node.height / 2;
+      y = node.y1 + gap;
+    });
+  });
+
+  const maxLinkValue = d3.max(links, link => link.value) || 1;
+  const linkWidth = d3.scaleSqrt()
+    .domain([0, maxLinkValue])
+    .range([5, Math.min(58, innerHeight * 0.17)]);
+
+  links.forEach(link => {
+    const sourceSlots = Math.max(1, link.source.outgoing.length);
+    const targetSlots = Math.max(1, link.target.incoming.length);
+    const sourceSlotWidth = Math.max(4, (link.source.height - Math.max(0, sourceSlots - 1) * 2) / sourceSlots);
+    const targetSlotWidth = Math.max(4, (link.target.height - Math.max(0, targetSlots - 1) * 2) / targetSlots);
+    link.width = Math.max(4, Math.min(linkWidth(link.value), sourceSlotWidth, targetSlotWidth));
+  });
+
+  nodes.forEach(node => {
+    node.outgoing.sort((a, b) => d3.ascending(a.target.cy, b.target.cy));
+    node.incoming.sort((a, b) => d3.ascending(a.source.cy, b.source.cy));
+
+    let sourceY = node.cy - (d3.sum(node.outgoing, link => link.width) + Math.max(0, node.outgoing.length - 1) * 2) / 2;
+    node.outgoing.forEach(link => {
+      link.sy = sourceY + link.width / 2;
+      sourceY += link.width + 2;
+    });
+
+    let targetY = node.cy - (d3.sum(node.incoming, link => link.width) + Math.max(0, node.incoming.length - 1) * 2) / 2;
+    node.incoming.forEach(link => {
+      link.ty = targetY + link.width / 2;
+      targetY += link.width + 2;
+    });
+  });
+
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('role', 'img')
+    .attr('aria-label', 'Taxonomic flow');
+
+  svg.append('rect')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', '#eef4f7');
+
+  const tooltip = d3.select(container).append('div').attr('class', 'tax-flow-tooltip');
+
+  function moveTooltip(event) {
+    const [x, y] = d3.pointer(event, container);
+    tooltip
+      .style('left', `${Math.min(Math.max(x, 140), Math.max(140, container.clientWidth - 140))}px`)
+      .style('top', `${Math.max(y, 54)}px`);
+  }
+
+  function showTooltip(event, html) {
+    tooltip.html(html).classed('is-visible', true);
+    moveTooltip(event);
+  }
+
+  function hideTooltip() {
+    tooltip.classed('is-visible', false);
+  }
+
+  function nodeTooltip(node) {
+    const pathogenText = node.pathogenic ? '<br>Pathogen: yes' : '';
+    const actionText = node.hasChildren
+      ? `<br>${node.isCollapsed ? 'Click to expand' : 'Click to collapse'}`
+      : '';
+    return `<strong>${escapeHtml(node.name)}</strong>${escapeHtml(node.rank.label)}<br>Reads: ${formatCompactValue(node.value)}${node.taxid ? `<br>TaxID: ${escapeHtml(node.taxid)}` : ''}${pathogenText}${actionText}`;
+  }
+
+  function linkTooltip(link) {
+    return `<strong>${escapeHtml(link.source.name)} to ${escapeHtml(link.target.name)}</strong>${escapeHtml(link.target.rank.label)}<br>Reads: ${formatCompactValue(link.value)}`;
+  }
+
+  function ribbonPath(link) {
+    const x0 = link.source.x + nodeWidth / 2;
+    const x1 = link.target.x - nodeWidth / 2;
+    const bend = Math.max(40, Math.abs(x1 - x0) * 0.52);
+    const c0 = x0 + bend;
+    const c1 = x1 - bend;
+    return `M${x0},${link.sy}C${c0},${link.sy} ${c1},${link.ty} ${x1},${link.ty}`;
+  }
+
+  function getNodeHoverState(node) {
+    const nodeKeys = new Set([node.key]);
+    const linkKeys = new Set();
+    const visitedAncestorKeys = new Set();
+
+    function addAncestors(currentNode) {
+      if (visitedAncestorKeys.has(currentNode.key)) return;
+      visitedAncestorKeys.add(currentNode.key);
+      currentNode.incoming.forEach(link => {
+        linkKeys.add(link.key);
+        nodeKeys.add(link.source.key);
+        addAncestors(link.source);
+      });
+    }
+
+    addAncestors(node);
+    node.outgoing.forEach(link => {
+      linkKeys.add(link.key);
+      nodeKeys.add(link.target.key);
+    });
+
+    return { nodeKeys, linkKeys };
+  }
+
+  const linkSelection = svg.append('g')
+    .attr('class', 'tax-flow-ribbons')
+    .selectAll('path')
+    .data(links, link => link.key)
+    .join('path')
+    .attr('class', 'tax-flow-ribbon')
+    .attr('d', ribbonPath)
+    .attr('stroke', (link, index) => getLevelColor(link.target.level, 0.42, index))
+    .attr('stroke-width', link => link.width)
+    .attr('stroke-opacity', 0.48)
+    .on('mouseenter', function(event, link) {
+      linkSelection.classed('is-dimmed', item => item !== link).classed('is-active', item => item === link);
+      nodeSelection.classed('is-dimmed', node => node !== link.source && node !== link.target).classed('is-active', node => node === link.source || node === link.target);
+      showTooltip(event, linkTooltip(link));
+    })
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', clearHighlight);
+
+  const nodeSelection = svg.append('g')
+    .attr('class', 'tax-flow-nodes')
+    .selectAll('g')
+    .data(nodes, node => node.key)
+    .join('g')
+    .attr('class', 'tax-flow-node')
+    .classed('has-children', node => node.hasChildren)
+    .classed('is-collapsed', node => node.isCollapsed)
+    .attr('transform', node => `translate(${node.x},0)`)
+    .on('click', function(event, node) {
+      if (!node.hasChildren) return;
+      event.stopPropagation();
+      if (collapsedTaxFlowNodes.has(node.key)) {
+        collapsedTaxFlowNodes.delete(node.key);
+      } else {
+        collapsedTaxFlowNodes.add(node.key);
+      }
+      hideTooltip();
+      renderTaxonomicFlow(selectedRows, contextRows);
+    })
+    .on('mouseenter', function(event, node) {
+      const hoverState = getNodeHoverState(node);
+      linkSelection
+        .classed('is-dimmed', link => !hoverState.linkKeys.has(link.key))
+        .classed('is-active', link => hoverState.linkKeys.has(link.key));
+      nodeSelection
+        .classed('is-dimmed', candidate => !hoverState.nodeKeys.has(candidate.key))
+        .classed('is-active', candidate => hoverState.nodeKeys.has(candidate.key));
+      showTooltip(event, nodeTooltip(node));
+    })
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', clearHighlight);
+
+  nodeSelection.append('rect')
+    .attr('x', -nodeWidth / 2)
+    .attr('y', node => node.y0)
+    .attr('width', nodeWidth)
+    .attr('height', node => Math.max(7, node.height))
+    .attr('rx', 2)
+    .attr('fill', (node, index) => getLevelColor(node.level, 1, index))
+    .attr('stroke', 'rgba(24, 33, 47, 0.5)');
+
+  nodeSelection.append('text')
+    .attr('class', 'tax-flow-value')
+    .attr('x', 0)
+    .attr('y', node => node.y0 - 4)
+    .attr('text-anchor', 'middle')
+    .text(node => formatCompactValue(node.value));
+
+  nodeSelection.append('text')
+    .attr('class', 'tax-flow-label')
+    .attr('x', nodeWidth / 2 + 5)
+    .attr('y', node => node.cy + 3)
+    .text(node => node.name);
+
+  nodeSelection
+    .filter(node => node.hasChildren && node.isCollapsed)
+    .append('text')
+    .attr('class', 'tax-flow-toggle')
+    .attr('x', -nodeWidth / 2 - 8)
+    .attr('y', node => node.cy + 4)
+    .text('+');
+
+  const axisY = height - 20;
+  const axis = svg.append('g').attr('class', 'tax-flow-axis');
+  const firstRank = visibleRanks[0];
+  const lastRank = visibleRanks[visibleRanks.length - 1];
+  if (firstRank && lastRank) {
+    axis.append('line')
+      .attr('x1', xScale(firstRank.level) - nodeWidth / 2)
+      .attr('x2', xScale(lastRank.level) + nodeWidth / 2)
+      .attr('y1', axisY)
+      .attr('y2', axisY);
+  }
+
+  const rankTick = axis.selectAll('g')
+    .data(visibleRanks)
+    .join('g')
+    .attr('transform', rank => `translate(${xScale(rank.level)},${axisY})`);
+
+  rankTick.append('line')
+    .attr('y1', 0)
+    .attr('y2', 5);
+
+  rankTick.append('text')
+    .attr('y', 17)
+    .attr('text-anchor', 'middle')
+    .text(rank => rank.code);
+
+  function clearHighlight() {
+    linkSelection.classed('is-dimmed', false).classed('is-active', false);
+    nodeSelection.classed('is-dimmed', false).classed('is-active', false);
+    hideTooltip();
+  }
+}
+
 function updateAll() {
   const state = getFilterState();
 
@@ -1246,99 +1971,23 @@ function updateAll() {
     currentRecords = currentRecords.filter(r => hasPathogenicInfo(r.PATHOGENIC_INFO));
   }
 
-  // Apply other filters for Sankey and Vue table display
-  const filteredData = currentRecords.filter(r =>
-    sel.includes(r.LEVEL) &&
+  const chartData = currentRecords.filter(r =>
     r.READ_COUNT >= rcMin &&
     r.SNI_SCORE   >= sniMin
   );
+
+  // Apply the level filter to the table while keeping chartData available as ancestry context.
+  const filteredData = chartData.filter(r => sel.includes(r.LEVEL));
 
   if (vueApp && vueApp.updateTableData) {
     vueApp.updateTableData(filteredData);
   }
 
-  const sankeyEl = document.getElementById('sankey');
-  if (!isElementVisible(sankeyEl)) {
-    return;
-  }
-
-  const sankeyData = filteredData.filter(r => r.PARENT_NAME != null && r.NAME != null);
-  const labels = Array.from(new Set(sankeyData.flatMap(r=>[r.PARENT_NAME,r.NAME])));
-  const labelIndex = new Map(labels.map((label, idx) => [label, idx]));
-  const nodeLevels = new Map();
-  sankeyData.forEach(r => {
-    if (r.NAME != null) nodeLevels.set(r.NAME, r.LEVEL);
-    if (r.PARENT_NAME != null && !nodeLevels.has(r.PARENT_NAME)) nodeLevels.set(r.PARENT_NAME, r.PARENT_LEVEL || '');
-  });
-
-  const source=[], target=[], value=[], linkColor=[], customData=[];
-  sankeyData.forEach(r => {
-    const sourceIndex = labelIndex.get(r.PARENT_NAME);
-    const targetIndex = labelIndex.get(r.NAME);
-    const depthValue = Number(r.DEPTH);
-    if (sourceIndex !== undefined && targetIndex !== undefined && Number.isFinite(depthValue)) {
-        source.push(sourceIndex);
-        target.push(targetIndex);
-        value.push(depthValue);
-        linkColor.push(getLevelColor(r.LEVEL, 0.28, source.length));
-        customData.push([r.LEVEL || '', Number(r.READ_COUNT) || 0, Number(r.SNI_SCORE) || 0]);
-    }
-  });
-
-  const sankeyLayout = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { family: 'Inter, Arial, sans-serif', size: 11, color: '#263440' },
-    margin: { l: 22, r: 22, t: 18, b: 18 },
-    height: Math.max(sankeyEl.clientHeight, 420),
-    width: Math.max(sankeyEl.clientWidth, 320),
-    annotations: source.length === 0 ? [{
-      text: 'No flow records match the current filters.',
-      x: 0.5,
-      y: 0.5,
-      xref: 'paper',
-      yref: 'paper',
-      showarrow: false,
-      font: { size: 15, color: '#617080' }
-    }] : []
-  };
-
-  if (source.length === 0) {
-    Plotly.react('sankey', [], sankeyLayout, plotConfig);
-    return;
-  }
-
-  const nodeColor = labels.map((label, index) => getLevelColor(nodeLevels.get(label), 0.9, index));
-  Plotly.react('sankey',[{
-    type:'sankey',
-    orientation:'h',
-    arrangement: 'snap',
-    node: {
-      pad:18,
-      thickness:18,
-      line:{color:'rgba(24,33,47,0.22)',width:0.7},
-      label:labels,
-      color: nodeColor,
-      textposition:'outside',
-      hovertemplate: '%{label}<extra></extra>'
-    },
-    link: {
-      source,target,value,
-      color: linkColor,
-      customdata: customData,
-      hovertemplate: '%{source.label} to %{target.label}<br>Depth: %{value:.4f}<br>Level: %{customdata[0]}<br>Read count: %{customdata[1]:,.0f}<br>SNI: %{customdata[2]:.4f}<extra></extra>'
-    }
-  }], sankeyLayout, plotConfig);
+  renderTaxonomicFlow(filteredData, chartData);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   initVueApp();
-
-  Plotly.newPlot('sankey', [], {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: 'rgba(0,0,0,0)',
-    margin: { l: 22, r: 22, t: 18, b: 18 }
-  }, plotConfig);
   updateAll();
 
   let resizeTimer = null;
@@ -1357,9 +2006,9 @@ def parse_args():
         description="Generate an interactive Sankey + Vue DataTable HTML from a TSV."
     )
     p.add_argument(
-        '--tsv', '-i',
+        '--input-full-tsv', '-i',
         required=True,
-        help="Input TSV file"
+        help="Input full GOTTCHA2 result TSV file"
     )
     p.add_argument(
         '--out', '-o',
@@ -1386,22 +2035,22 @@ def main():
 
     # --- Read TSV ---
     try:
-        df = pd.read_csv(args.tsv, sep='\t')
+        df = pd.read_csv(args.input_full_tsv, sep='\t')
     except Exception as e:
-        sys.exit(f"ERROR: Failed to read TSV '{args.tsv}': {e}")
+        sys.exit(f"ERROR: Failed to read TSV '{args.input_full_tsv}': {e}")
 
     # --- Determine output HTML filename ---
     if args.out:
         OUTPUT_HTML = args.out
     else:
-        base_name = os.path.splitext(os.path.basename(args.tsv))[0]
+        base_name = os.path.splitext(os.path.basename(args.input_full_tsv))[0]
         OUTPUT_HTML = f"{base_name}.html"
 
     # --- Ensure required columns exist ---
     required_cols = ['READ_COUNT', 'SNI_SCORE', 'LEVEL', 'PARENT_NAME', 'NAME']
     for col in required_cols:
         if col not in df.columns:
-            sys.exit(f"ERROR: Required column '{col}' not found in '{args.tsv}'")
+            sys.exit(f"ERROR: Required column '{col}' not found in '{args.input_full_tsv}'")
 
     # --- Normalize numeric columns used in filters/plots ---
     df['READ_COUNT'] = pd.to_numeric(df['READ_COUNT'], errors='coerce')
@@ -1422,7 +2071,7 @@ def main():
     sni_min = args.sni_min if args.sni_min is not None else (float(sni_min_val) if pd.notna(sni_min_val) else 0.0)
     sni_max = 1.0 # SNI is typically between 0 and 1
 
-    tsv_filename = os.path.basename(args.tsv)
+    tsv_filename = os.path.basename(args.input_full_tsv)
 
     # --- Prepare NOTE column ---
     if 'NOTE' not in df.columns:
@@ -1447,7 +2096,7 @@ def main():
     if not default_levels:
         default_levels = levels[:]
 
-    HTML_TEMPLATE = HTML_TEMPLATE.replace('TSVFILENAME', tsv_filename)
+    HTML_TEMPLATE = HTML_TEMPLATE.replace('REPORT_TITLE', tsv_filename.replace('.pathogen.full.tsv', ''))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('REPORT_FILENAME_JSON', json.dumps(tsv_filename))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('RECORDS', json.dumps(records, allow_nan=False))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('DEFAULT_LEVELS_JSON', json.dumps(default_levels))
@@ -1467,9 +2116,6 @@ def main():
         ).replace(
             '<script src="/publicdata/js/vue.global.prod.js"></script>',
             '<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>'
-        ).replace(
-            '<script src="/publicdata/js/plotly-3.0.1.min.js" charset="utf-8"></script>',
-            '<script src="https://cdn.plot.ly/plotly-3.0.1.min.js" charset="utf-8"></script>'
         ).replace(
             '<script src="/publicdata/js/primevue.min.js"></script>',
             '<script src="https://unpkg.com/primevue@4/umd/primevue.min.js"></script>'

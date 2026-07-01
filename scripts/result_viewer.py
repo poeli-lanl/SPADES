@@ -11,7 +11,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GOTTCHA2: TSVFILENAME</title>
+  <title>GOTTCHA2: REPORT_TITLE</title>
   
   <script src="/publicdata/js/vue.global.prod.js"></script>
   <script src="/publicdata/js/primevue.min.js"></script>
@@ -227,7 +227,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     .filter-switch {
-        min-height: 42px;
+        min-height: 35px;
         display: flex;
         align-items: center;
         gap: 9px;
@@ -387,12 +387,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         stroke-linecap: butt;
     }
 
+    .tax-flow-node.has-children {
+        cursor: pointer;
+    }
+
     .tax-flow-node.is-active rect {
         stroke-width: 2.2px;
     }
 
     .tax-flow-label,
     .tax-flow-value,
+    .tax-flow-toggle,
     .tax-flow-axis text {
         fill: #111827;
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -412,6 +417,12 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .tax-flow-axis text {
         font-size: 10px;
         font-weight: 800;
+    }
+
+    .tax-flow-toggle {
+        font-size: 11px;
+        font-weight: 900;
+        text-anchor: middle;
     }
 
     .tax-flow-axis line,
@@ -726,7 +737,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <header class="report-header">
             <div>
                 <div class="eyebrow">GOTTCHA2 result viewer</div>
-                <h1>TSVFILENAME</h1>
+                <h1>REPORT_TITLE</h1>
                 <div class="header-meta">
                     <span class="meta-pill"><i class="pi pi-database"></i>{{ formatNumber(totalRecords) }} rows</span>
                     <span class="meta-pill"><i class="pi pi-sitemap"></i>{{ formatNumber(levelOptions.length) }} levels</span>
@@ -762,7 +773,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             <div class="metric-panel">
                 <div class="metric-label">Read count</div>
                 <div class="metric-value">{{ formatNumber(summaryStats.reads) }}</div>
-                <div class="metric-subtle">filtered total</div>
+                <div class="metric-subtle">qualified alignments</div>
             </div>
             <div class="metric-panel">
                 <div class="metric-label">Mean SNI</div>
@@ -978,10 +989,11 @@ const rankDefinitions = [
   { level: 'family', label: 'Family', code: 'F' },
   { level: 'genus', label: 'Genus', code: 'G' },
   { level: 'species', label: 'Species', code: 'S' },
-  { level: 'strain', label: 'Strain', code: 'T' }
+  { level: 'strain', label: 'Strain', code: 'N' }
 ];
 const rankIndex = new Map(rankDefinitions.map((rank, index) => [rank.level, index]));
 const rootNames = new Set(['root', 'cellular organisms']);
+const collapsedTaxFlowNodes = new Set();
 
 let vueApp; // Vue app instance
 function initVueApp() {
@@ -1044,7 +1056,21 @@ function initVueApp() {
             const totalRecords = computed(() => records.length);
             const summaryStats = computed(() => {
                 const rows = tableData.value || [];
-                const reads = rows.reduce((total, row) => {
+                const rankedRows = rows
+                    .map(row => ({
+                        row,
+                        rank: rankIndex.has(normalizeLevel(row.LEVEL))
+                            ? rankIndex.get(normalizeLevel(row.LEVEL))
+                            : Number.POSITIVE_INFINITY
+                    }))
+                    .filter(item => Number.isFinite(item.rank));
+                const mostSpecificRank = rankedRows.length
+                    ? Math.max(...rankedRows.map(item => item.rank))
+                    : null;
+                const readRows = mostSpecificRank === null
+                    ? []
+                    : rankedRows.filter(item => item.rank === mostSpecificRank).map(item => item.row);
+                const reads = readRows.reduce((total, row) => {
                     const value = Number(row.READ_COUNT);
                     return total + (Number.isFinite(value) ? value : 0);
                 }, 0);
@@ -1062,6 +1088,7 @@ function initVueApp() {
                 return {
                     rows: rows.length,
                     reads,
+                    readLevel: mostSpecificRank === null ? '' : rankDefinitions[mostSpecificRank].label,
                     meanSni,
                     pathogens,
                     pathogenRate: rows.length ? pathogens / rows.length : 0
@@ -1168,6 +1195,7 @@ function initVueApp() {
                 sniMin.value = initialSniMin;
                 showValidOnly.value = true;
                 showPathogenicOnly.value = false;
+                collapsedTaxFlowNodes.clear();
                 clearSearch();
                 nextTick(() => {
                     if (typeof updateAll === 'function') {
@@ -1597,8 +1625,46 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     }
   });
 
-  const nodes = Array.from(nodesByKey.values());
-  const links = Array.from(linksByKey.values()).filter(link => link.source && link.target);
+  const allNodes = Array.from(nodesByKey.values());
+  const allLinks = Array.from(linksByKey.values()).filter(link => link.source && link.target);
+  const currentNodeKeys = new Set(allNodes.map(node => node.key));
+  Array.from(collapsedTaxFlowNodes).forEach(key => {
+    if (!currentNodeKeys.has(key)) {
+      collapsedTaxFlowNodes.delete(key);
+    }
+  });
+
+  allNodes.forEach(node => {
+    node.hasChildren = allLinks.some(link => link.source.key === node.key);
+    node.isCollapsed = collapsedTaxFlowNodes.has(node.key);
+  });
+
+  const incomingByTargetKey = new Map();
+  allLinks.forEach(link => {
+    if (!incomingByTargetKey.has(link.target.key)) {
+      incomingByTargetKey.set(link.target.key, []);
+    }
+    incomingByTargetKey.get(link.target.key).push(link);
+  });
+
+  function hasCollapsedAncestor(node) {
+    const visited = new Set();
+    const stack = [...(incomingByTargetKey.get(node.key) || []).map(link => link.source)];
+
+    while (stack.length) {
+      const ancestor = stack.pop();
+      if (!ancestor || visited.has(ancestor.key)) continue;
+      if (collapsedTaxFlowNodes.has(ancestor.key)) return true;
+      visited.add(ancestor.key);
+      stack.push(...(incomingByTargetKey.get(ancestor.key) || []).map(link => link.source));
+    }
+
+    return false;
+  }
+
+  const nodes = allNodes.filter(node => !hasCollapsedAncestor(node));
+  const visibleNodeKeys = new Set(nodes.map(node => node.key));
+  const links = allLinks.filter(link => visibleNodeKeys.has(link.source.key) && visibleNodeKeys.has(link.target.key));
 
   if (!nodes.length) {
     renderEmptyFlow(container, 'No flow records match the current filters.');
@@ -1718,7 +1784,10 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
 
   function nodeTooltip(node) {
     const pathogenText = node.pathogenic ? '<br>Pathogen: yes' : '';
-    return `<strong>${escapeHtml(node.name)}</strong>${escapeHtml(node.rank.label)}<br>Reads: ${formatCompactValue(node.value)}${node.taxid ? `<br>TaxID: ${escapeHtml(node.taxid)}` : ''}${pathogenText}`;
+    const actionText = node.hasChildren
+      ? `<br>${node.isCollapsed ? 'Click to expand' : 'Click to collapse'}`
+      : '';
+    return `<strong>${escapeHtml(node.name)}</strong>${escapeHtml(node.rank.label)}<br>Reads: ${formatCompactValue(node.value)}${node.taxid ? `<br>TaxID: ${escapeHtml(node.taxid)}` : ''}${pathogenText}${actionText}`;
   }
 
   function linkTooltip(link) {
@@ -1732,6 +1801,30 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     const c0 = x0 + bend;
     const c1 = x1 - bend;
     return `M${x0},${link.sy}C${c0},${link.sy} ${c1},${link.ty} ${x1},${link.ty}`;
+  }
+
+  function getNodeHoverState(node) {
+    const nodeKeys = new Set([node.key]);
+    const linkKeys = new Set();
+    const visitedAncestorKeys = new Set();
+
+    function addAncestors(currentNode) {
+      if (visitedAncestorKeys.has(currentNode.key)) return;
+      visitedAncestorKeys.add(currentNode.key);
+      currentNode.incoming.forEach(link => {
+        linkKeys.add(link.key);
+        nodeKeys.add(link.source.key);
+        addAncestors(link.source);
+      });
+    }
+
+    addAncestors(node);
+    node.outgoing.forEach(link => {
+      linkKeys.add(link.key);
+      nodeKeys.add(link.target.key);
+    });
+
+    return { nodeKeys, linkKeys };
   }
 
   const linkSelection = svg.append('g')
@@ -1758,14 +1851,28 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     .data(nodes, node => node.key)
     .join('g')
     .attr('class', 'tax-flow-node')
+    .classed('has-children', node => node.hasChildren)
+    .classed('is-collapsed', node => node.isCollapsed)
     .attr('transform', node => `translate(${node.x},0)`)
+    .on('click', function(event, node) {
+      if (!node.hasChildren) return;
+      event.stopPropagation();
+      if (collapsedTaxFlowNodes.has(node.key)) {
+        collapsedTaxFlowNodes.delete(node.key);
+      } else {
+        collapsedTaxFlowNodes.add(node.key);
+      }
+      hideTooltip();
+      renderTaxonomicFlow(selectedRows, contextRows);
+    })
     .on('mouseenter', function(event, node) {
+      const hoverState = getNodeHoverState(node);
       linkSelection
-        .classed('is-dimmed', link => link.source !== node && link.target !== node)
-        .classed('is-active', link => link.source === node || link.target === node);
+        .classed('is-dimmed', link => !hoverState.linkKeys.has(link.key))
+        .classed('is-active', link => hoverState.linkKeys.has(link.key));
       nodeSelection
-        .classed('is-dimmed', candidate => candidate !== node && !candidate.incoming.some(link => link.source === node) && !candidate.outgoing.some(link => link.target === node))
-        .classed('is-active', candidate => candidate === node);
+        .classed('is-dimmed', candidate => !hoverState.nodeKeys.has(candidate.key))
+        .classed('is-active', candidate => hoverState.nodeKeys.has(candidate.key));
       showTooltip(event, nodeTooltip(node));
     })
     .on('mousemove', moveTooltip)
@@ -1792,6 +1899,14 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     .attr('x', nodeWidth / 2 + 5)
     .attr('y', node => node.cy + 3)
     .text(node => node.name);
+
+  nodeSelection
+    .filter(node => node.hasChildren && node.isCollapsed)
+    .append('text')
+    .attr('class', 'tax-flow-toggle')
+    .attr('x', -nodeWidth / 2 - 8)
+    .attr('y', node => node.cy + 4)
+    .text('+');
 
   const axisY = height - 20;
   const axis = svg.append('g').attr('class', 'tax-flow-axis');
@@ -1981,7 +2096,7 @@ def main():
     if not default_levels:
         default_levels = levels[:]
 
-    HTML_TEMPLATE = HTML_TEMPLATE.replace('TSVFILENAME', tsv_filename)
+    HTML_TEMPLATE = HTML_TEMPLATE.replace('REPORT_TITLE', tsv_filename.replace('.pathogen.full.tsv', ''))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('REPORT_FILENAME_JSON', json.dumps(tsv_filename))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('RECORDS', json.dumps(records, allow_nan=False))
     HTML_TEMPLATE = HTML_TEMPLATE.replace('DEFAULT_LEVELS_JSON', json.dumps(default_levels))

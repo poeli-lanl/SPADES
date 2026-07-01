@@ -46,7 +46,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.2.0"
+VERSION="1.2.1"
 INPUT=""
 INPUT_QC=""
 READ=""

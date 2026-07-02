@@ -33,16 +33,27 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-    - name: Extract version from release
+    - name: Extract Docker tags
       id: version
+      env:
+        RELEASE_NAME: ${{ github.event.release.name }}
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+        DISPATCH_TAG: ${{ github.event.inputs.tag }}
       run: |
         if [ "${{ github.event_name }}" = "release" ]; then
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
+          RAW_VERSION="${RELEASE_NAME:-$RELEASE_TAG}"
+          VERSION=$(printf '%s' "$RAW_VERSION" | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//' | cut -c1-128)
+          if [ -z "$VERSION" ]; then
+            VERSION=$(printf '%s' "$RELEASE_TAG" | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//' | cut -c1-128)
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "Unable to derive a Docker tag from the release name or tag." >&2
+            exit 1
+          fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "tags=${{ env.DOCKER_IMAGE }}:${VERSION},${{ env.DOCKER_IMAGE }}:latest" >> $GITHUB_OUTPUT
         else
-          VERSION=${{ github.event.inputs.tag }}
+          VERSION="${DISPATCH_TAG}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "tags=${{ env.DOCKER_IMAGE }}:${VERSION}" >> $GITHUB_OUTPUT
         fi

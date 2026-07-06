@@ -768,7 +768,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             <div class="metric-panel">
                 <div class="metric-label">Visible taxa</div>
                 <div class="metric-value">{{ formatNumber(summaryStats.rows) }}</div>
-                <div class="metric-subtle">of {{ formatNumber(totalRecords) }} records</div>
+                <div class="metric-subtle">of {{ formatNumber(totalRecords) }} taxa</div>
             </div>
             <div class="metric-panel">
                 <div class="metric-label">Read count</div>
@@ -1885,7 +1885,6 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     .attr('height', node => Math.max(7, node.height))
     .attr('rx', 2)
     .attr('fill', (node, index) => getLevelColor(node.level, 1, index))
-    .attr('stroke', 'rgba(24, 33, 47, 0.5)');
 
   nodeSelection.append('text')
     .attr('class', 'tax-flow-value')
@@ -1908,7 +1907,7 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     .attr('y', node => node.cy + 4)
     .text('+');
 
-  const axisY = height - 20;
+  const axisY = height - 30;
   const axis = svg.append('g').attr('class', 'tax-flow-axis');
   const firstRank = visibleRanks[0];
   const lastRank = visibleRanks[visibleRanks.length - 1];
@@ -1932,7 +1931,7 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
   rankTick.append('text')
     .attr('y', 17)
     .attr('text-anchor', 'middle')
-    .text(rank => rank.code);
+    .text(rank => rank.label);
 
   function clearHighlight() {
     linkSelection.classed('is-dimmed', false).classed('is-active', false);

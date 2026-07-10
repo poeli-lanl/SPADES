@@ -393,7 +393,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     body { margin:0; min-height:100vh; background:radial-gradient(circle at 5% 0,rgba(25,114,120,.08),transparent 28rem),var(--page); color:var(--ink); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
     [v-cloak] { display:none; } button,input { font:inherit; } .app-shell { width:min(1600px,calc(100% - 32px)); margin:auto; padding:26px 0 42px; }
     .report-header { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin-bottom:16px; }
-    .eyebrow { color:var(--teal); font-size:.73rem; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    .eyebrow { color:var(--teal); font-size:.73rem; font-weight:700; text-transform:uppercase; }
     h1 { margin:5px 0 0; font-size:30px; line-height:1.5; }
     .header-meta,.live-control,.toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
     .header-meta { margin-top:13px; }

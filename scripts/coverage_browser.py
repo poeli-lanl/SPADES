@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
 import bisect
 import gzip
 import os
@@ -14,6 +15,152 @@ try:
     import minify_html
 except ImportError:
     minify_html = None
+
+HTML_ASSET_DIR = os.path.realpath(
+    os.path.join(os.path.dirname(__file__), '..', 'data', 'html')
+)
+
+RESOURCE_SPECS = (
+    {
+        'marker': '<script src="/publicdata/js/d3.v7.min.js"></script>',
+        'path': 'js/d3.v7.min.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<script src="/publicdata/js/vue.global.prod.js"></script>',
+        'path': 'js/vue.global.prod.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<script src="/publicdata/js/primevue.min.js"></script>',
+        'path': 'js/primevue.min.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<script src="/publicdata/js/aura.js"></script>',
+        'path': 'js/aura.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<link href="/publicdata/css/bootstrap.min.css" rel="stylesheet">',
+        'path': 'css/bootstrap.min.css',
+        'kind': 'style',
+    },
+    {
+        'marker': '<link rel="stylesheet" href="/publicdata/css/primeicons.css">',
+        'path': 'css/primeicons.css',
+        'kind': 'primeicons',
+    },
+    {
+        'marker': '<script src="/publicdata/js/bootstrap.bundle.min.js"></script>',
+        'path': 'js/bootstrap.bundle.min.js',
+        'kind': 'script',
+    },
+)
+
+
+def _read_resource(source):
+    """Read a browser dependency from the bundled HTML asset directory."""
+    try:
+        with open(source, 'rb') as resource_file:
+            return resource_file.read()
+    except OSError as exc:
+        raise RuntimeError(f"Could not read browser resource {source}: {exc}") from exc
+
+
+def _embed_primeicons_font(css, stylesheet_source):
+    """Replace PrimeIcons' multi-format font references with one embedded WOFF2 font."""
+    font_source = os.path.join(
+        os.path.dirname(stylesheet_source), 'fonts', 'primeicons.woff2'
+    )
+    font_data = base64.b64encode(_read_resource(font_source)).decode('ascii')
+    embedded_font_face = (
+        "@font-face{font-family:'primeicons';font-display:block;"
+        f"src:url('data:font/woff2;base64,{font_data}') format('woff2');"
+        "font-weight:normal;font-style:normal}"
+    )
+    css, substitutions = re.subn(
+        r'@font-face\s*\{.*?\}',
+        embedded_font_face,
+        css,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if substitutions != 1:
+        raise ValueError(
+            'PrimeIcons stylesheet does not contain the expected @font-face rule'
+        )
+    return css
+
+
+def _embed_browser_resources(html_template):
+    """Embed local browser dependencies as one deterministic compressed payload."""
+    resources = []
+    for spec in RESOURCE_SPECS:
+        source = os.path.join(HTML_ASSET_DIR, spec['path'])
+        content = _read_resource(source).decode('utf-8')
+        content = re.sub(
+            r'/\*[#@]\s*sourceMappingURL=.*?\*/', '', content, flags=re.DOTALL
+        )
+        content = re.sub(
+            r'^\s*//[#@]\s*sourceMappingURL=.*$', '', content, flags=re.MULTILINE
+        )
+        if spec['kind'] == 'primeicons':
+            content = _embed_primeicons_font(content, source)
+        if spec['marker'] not in html_template:
+            raise ValueError(f"HTML resource marker not found: {spec['marker']}")
+        resources.append({
+            'kind': 'script' if spec['kind'] == 'script' else 'style',
+            'content': content,
+        })
+
+    resource_json = json.dumps(
+        {'resources': resources},
+        ensure_ascii=False,
+        separators=(',', ':'),
+    ).encode('utf-8')
+    resource_payload = base64.b64encode(
+        gzip.compress(resource_json, compresslevel=9, mtime=0)
+    ).decode('ascii')
+    style_count = sum(resource['kind'] == 'style' for resource in resources)
+
+    loader = f"""<script>
+window.browserResourcesReady = (async function() {{
+  if (typeof DecompressionStream === 'undefined') {{
+    throw new Error('This report requires a browser with DecompressionStream support.');
+  }}
+
+  const styleSlots = Array.from({{ length: {style_count} }}, function() {{
+    const style = document.createElement('style');
+    document.head.appendChild(style);
+    return style;
+  }});
+  const binary = atob('{resource_payload}');
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {{
+    bytes[index] = binary.charCodeAt(index);
+  }}
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const payload = JSON.parse(await new Response(stream).text());
+  let styleIndex = 0;
+
+  for (const resource of payload.resources) {{
+    if (resource.kind === 'style') {{
+      styleSlots[styleIndex].textContent = resource.content;
+      styleIndex += 1;
+    }} else {{
+      const script = document.createElement('script');
+      script.textContent = resource.content;
+      document.head.appendChild(script);
+    }}
+  }}
+}})();
+</script>"""
+
+    html_content = html_template.replace(RESOURCE_SPECS[0]['marker'], loader, 1)
+    for spec in RESOURCE_SPECS[1:]:
+        html_content = html_content.replace(spec['marker'], '', 1)
+    return html_content
 
 HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
@@ -753,6 +900,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <!-- Bootstrap 5 JS Bundle with Popper -->
     <script src="/publicdata/js/bootstrap.bundle.min.js"></script>
     <script>
+    window.browserResourcesReady.then(function() {
         // The data will be injected here
         const genomeData = GENOME_DATA_PLACEHOLDER;
         const coverageData = COVERAGE_DATA_PLACEHOLDER;
@@ -779,10 +927,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         // Bootstrap modal instance
         let annotationModal;
         
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Bootstrap modal
+        function initializeAnnotationModal() {
             annotationModal = new bootstrap.Modal(document.getElementById('annotationModal'));
-        });
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeAnnotationModal);
+        } else {
+            initializeAnnotationModal();
+        }
         
         // Reactive state variables accessible globally
         let selectedTaxid, currentGenome, currentFragment;
@@ -1827,6 +1979,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .attr("transform", d => `translate(${xScale(d.signature_x)},24) rotate(180)`)
                 .style("display", d => d.signature_x >= domainStart && d.signature_x <= domainEnd ? null : "none");
         }
+    }).catch(function(error) {
+        console.error('Unable to load embedded report resources:', error);
+        const appElement = document.getElementById('app');
+        appElement.innerHTML = '<div class="empty-state">Unable to load this report. Please open it in a current version of your browser.</div>';
+    });
     </script>
 </body>
 </html>
@@ -2302,32 +2459,10 @@ def generate_html(
     variant_json = _compact_json(variant_data)
     vcf_file_json = _compact_json(vcf_file_data)
 
-    if use_external:
-        # Use CDN links for external resources
-        html_content = HTML_TEMPLATE.replace(
-            '<script src="/publicdata/js/d3.v7.min.js"></script>',
-            '<script src="https://d3js.org/d3.v7.min.js"></script>'
-        ).replace(
-            '<script src="/publicdata/js/vue.global.prod.js"></script>',
-            '<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>'
-        ).replace(
-            '<script src="/publicdata/js/primevue.min.js"></script>',
-            '<script src="https://unpkg.com/primevue@4/umd/primevue.min.js"></script>'
-        ).replace(
-            '<script src="/publicdata/js/aura.js"></script>',
-            '<script src="https://unpkg.com/@primeuix/themes/umd/aura.js"></script>'
-        ).replace(
-            '<link href="/publicdata/css/bootstrap.min.css" rel="stylesheet">',
-            '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">'
-        ).replace(
-            '<link rel="stylesheet" href="/publicdata/css/primeicons.css">',
-            '<link rel="stylesheet" href="https://unpkg.com/primeicons@7.0.0/primeicons.css">'
-        ).replace(
-            '<script src="/publicdata/js/bootstrap.bundle.min.js"></script>',
-            '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>'
-        )
-    else:
-        html_content = HTML_TEMPLATE
+    # Keep use_external in the public function signature for caller compatibility.
+    # Reports are now always self-contained, including when --external is supplied.
+    del use_external
+    html_content = _embed_browser_resources(HTML_TEMPLATE)
 
     # Replace placeholders in the HTML template
     html_content = html_content.replace('GENOME_DATA_PLACEHOLDER', genome_json)
@@ -2358,7 +2493,7 @@ def main():
     parser.add_argument('-o', '--output', default='coverage_visualization.html', 
                        help='Path to the output HTML file (default: coverage_visualization.html)')
     parser.add_argument('-e', '--external', action='store_true',
-                       help='Use external resources for the HTML visualization')
+                       help='Deprecated compatibility flag; resources are always embedded')
     parser.add_argument('--vcf', action='append', nargs='+', default=[],
                        help='Path(s) to bgzip/gzip-compressed .vcf.gz files. May be used more than once. Each VCF must have a matching .tbi index.')
     parser.add_argument('--min-depth', type=int, default=5,

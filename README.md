@@ -54,7 +54,6 @@ exist next to it:
   -p sample \
   -d /path/to/gottcha_db.species.fna \
   -t 4 \
-  --js-external \
   [--spades-data data/] \
   [--ont] \
   [--ont-error-rate 0.03] \
@@ -92,7 +91,6 @@ Options:
 - `--spades-data` Directory containing `taxonomy_db/` and `pathogen.tsv` (default: `data/`)
 - `--ont` Treat input as long reads; pre-processes with `fastplong`, splits to 150 bp, and passes relaxed error rate flags to GOTTCHA2
 - `--ont-error-rate` Error rate for ONT reads passed to GOTTCHA2 (`-er`), default: `0.03`
-- `--js-external` Use CDN-hosted JavaScript/CSS assets in generated HTML reports (required for local use)
 - `--clean` Remove intermediate files after the run (see Outputs section for details)
 - `--min-depth` Minimum depth for variant calling (default: 10)
 - `--version` Show script version and exit
@@ -154,7 +152,6 @@ This runs a small ONT example using files under `test/` and the bundled data in
 ## Notes
 
 - The script exports its own `scripts/` folder onto `PATH` and defaults `--spades-data` to `data/` next to the script.
-- Use `--js-external` when opening generated HTML reports directly from disk or from an environment that does not provide local `/publicdata` JavaScript/CSS assets.
 - `--ont` uses `fastplong`, splits reads to 150 bp, and passes the error rate to GOTTCHA2 (`--ont-error-rate`, default `0.03`). Suggesting values: `0.05` for legacy R9.4.1 (HAC/SUP), `0.01` for R10.4.1 (Simplex/SUP), and `0.001` for R10.4.1 (Duplex/SUP).
 - `--clean` removes the `intermediate/` directory after a successful run, keeping only final output files in the main output directory. Without `--clean`, all intermediate files are preserved in `intermediate/` for debugging.
 - `--min-depth` sets the minimum depth threshold for variant calling in the coverage browser (default: 10).
@@ -179,8 +176,7 @@ observed file becomes one timepoint:
   --outdir /results/run_01_stream \
   --prefix run_01 \
   --db-path /db/gottcha_db.species.fna \
-  --cpu 8 \
-  --js-external
+  --cpu 8
 ```
 
 The monitor waits until a file's size and modification time have remained

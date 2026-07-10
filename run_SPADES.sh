@@ -17,7 +17,6 @@ Usage:
     -p <prefix> \
     -d <db_path> \
     -t <cpu> \
-    [--js-external] \
     [--spades-data <spades_data_dir>] \
     [--min-depth <min_depth>] \
     [--ont] \
@@ -41,7 +40,7 @@ Optional:
   --min-depth         Minimum depth for variant calling (default: 10)
   --ont               Treat reads/BAM as ONT data; read input is split to 150bp
   --ont-error-rate    Error rate for ONT reads (passed to gottcha2 -er), default: 0.03
-  --js-external       Use CDN-hosted JavaScript/CSS assets in generated HTML reports
+  --js-external       Deprecated compatibility option; HTML resources are always embedded
   --clean             Remove large intermediates after the run
   --version           Show script version and exit
 
@@ -440,15 +439,9 @@ extract_summary_levels() {
 generate_result_viewer() {
   log_start "Generating result viewer HTML..."
 
-  local js_external_flag=""
-  if [[ "$JS_EXTERNAL" == "true" ]]; then
-    js_external_flag="--external"
-  fi
-
   result_viewer.py \
     -i "$OUTDIR/$PREFIX.pathogen.full.tsv" \
-    -o "$OUTDIR/$PREFIX.pathogen.full.html" \
-    $js_external_flag
+    -o "$OUTDIR/$PREFIX.pathogen.full.html" 
   local status=$?
   if [[ $status -eq 0 ]]; then
     log_success "Result viewer HTML generated: '$OUTDIR/$PREFIX.pathogen.full.html'."
@@ -467,11 +460,6 @@ generate_coverage_browser() {
   local full_tsv="$OUTDIR/$PREFIX.full.tsv"
   local status=0
 
-  local js_external_flag=""
-  if [[ "$JS_EXTERNAL" == "true" ]]; then
-    js_external_flag="--external"
-  fi
-
   if [[ "$BAM_MODE" == "true" ]]; then
     bam="$BAM_INPUT"
   fi
@@ -484,7 +472,6 @@ generate_coverage_browser() {
         -c "$coverage" \
         -f "$full_tsv" \
         --min-depth "$MIN_DEPTH" \
-        $js_external_flag \
         -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
     fi
 
@@ -520,7 +507,6 @@ generate_coverage_browser() {
       -f "$full_tsv" \
       --vcf "$vcf" \
       --min-depth "$MIN_DEPTH" \
-      $js_external_flag \
       -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
   fi
 

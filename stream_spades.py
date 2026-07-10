@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -36,11 +36,11 @@ READ_SUFFIXES = (
 STATE_VERSION = 1
 MANIFEST_FIELDS = (
     "timepoint",
-    "observed_at_utc",
-    "completed_at_utc",
+    "observed_at",
+    "completed_at",
     "input_file",
     "size_bytes",
-    "mtime_utc",
+    "mtime",
     "raw_reads",
     "filtered_reads",
     "cumulative_raw_reads",
@@ -49,16 +49,33 @@ MANIFEST_FIELDS = (
     "chunk_bam",
     "cumulative_bam",
     "pathogen_full_tsv",
+    "run_log",
     "status",
 )
 
 
-def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+def local_now() -> str:
+    """Return the current time in the system timezone, including its offset."""
+    return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
-def utc_from_timestamp(timestamp: float) -> str:
-    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat(timespec="seconds")
+def local_from_timestamp(timestamp: float) -> str:
+    """Render a POSIX timestamp in the system timezone."""
+    return datetime.fromtimestamp(timestamp).astimezone().isoformat(timespec="seconds")
+
+
+def timestamp_in_local_timezone(value: Any) -> str:
+    """Normalize old UTC state values and new offset timestamps to local time."""
+    if value in (None, ""):
+        return ""
+    text = str(value)
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if parsed.tzinfo is None:
+        parsed = parsed.astimezone()
+    return parsed.astimezone().isoformat(timespec="seconds")
 
 
 def is_read_file(path: Path) -> bool:
@@ -71,7 +88,7 @@ def file_signature(path: Path) -> Dict[str, Any]:
         "path": str(path.resolve()),
         "size": stat.st_size,
         "mtime_ns": stat.st_mtime_ns,
-        "mtime_utc": utc_from_timestamp(stat.st_mtime),
+        "mtime": local_from_timestamp(stat.st_mtime),
     }
 
 
@@ -109,6 +126,7 @@ class StreamSpades:
         self.state_path = self.output_dir / "stream_state.json"
         self.manifest_path = self.output_dir / "timepoints.tsv"
         self.report_path = self.output_dir / f"{args.prefix}.stream.html"
+        self.active_run_log: Optional[Path] = None
         self.observations: Dict[str, Tuple[int, int, float]] = {}
         self.state = self._load_state()
         self._recover_pending_timepoint()
@@ -149,7 +167,54 @@ class StreamSpades:
                 "The existing stream state belongs to a different input directory, "
                 "database, or prefix. Choose another --outdir or restore the original options."
             )
+        self._normalize_legacy_timestamps(state)
         return state
+
+    @staticmethod
+    def _normalize_legacy_timestamps(state: Dict[str, Any]) -> None:
+        """Migrate timestamp field names from early UTC-only stream states."""
+        records = list(state.get("timepoints", []))
+        pending_record = (state.get("pending") or {}).get("record")
+        if pending_record:
+            records.append(pending_record)
+        for record in records:
+            for current, legacy in (
+                ("observed_at", "observed_at_utc"),
+                ("completed_at", "completed_at_utc"),
+                ("mtime", "mtime_utc"),
+            ):
+                value = record.get(current, record.get(legacy, ""))
+                if value not in (None, ""):
+                    record[current] = timestamp_in_local_timezone(value)
+                record.pop(legacy, None)
+        pending = state.get("pending") or {}
+        signature = pending.get("signature") or {}
+        if "mtime_utc" in signature and "mtime" not in signature:
+            signature["mtime"] = timestamp_in_local_timezone(signature["mtime_utc"])
+        signature.pop("mtime_utc", None)
+
+    @staticmethod
+    def _relative_path(path: Any, base: Optional[Path] = None) -> str:
+        if path in (None, ""):
+            return ""
+        base = (base or Path.cwd()).resolve()
+        candidate = Path(str(path)).expanduser()
+        try:
+            resolved = (
+                candidate.resolve()
+                if candidate.is_absolute()
+                else (Path.cwd() / candidate).resolve()
+            )
+            return os.path.relpath(resolved, base)
+        except (OSError, ValueError):
+            return str(candidate)
+
+    def _display_command(self, command: Sequence[str]) -> str:
+        display = []
+        for part in command:
+            text = str(part)
+            display.append(self._relative_path(text) if Path(text).is_absolute() else text)
+        return command_text(display)
 
     def _save_state(self) -> None:
         atomic_json_write(self.state_path, self.state)
@@ -168,7 +233,21 @@ class StreamSpades:
             for record in sorted(
                 self.state["timepoints"], key=lambda item: int(item["timepoint"])
             ):
-                writer.writerow({field: record.get(field, "") for field in MANIFEST_FIELDS})
+                manifest_record = dict(record)
+                for field in (
+                    "input_file",
+                    "qc_json",
+                    "chunk_bam",
+                    "cumulative_bam",
+                    "pathogen_full_tsv",
+                    "run_log",
+                ):
+                    manifest_record[field] = self._relative_path(
+                        manifest_record.get(field, ""), self.output_dir
+                    )
+                writer.writerow(
+                    {field: manifest_record.get(field, "") for field in MANIFEST_FIELDS}
+                )
         os.replace(temporary, self.manifest_path)
 
     @staticmethod
@@ -244,8 +323,53 @@ class StreamSpades:
         return changed
 
     def _run(self, command: Sequence[str]) -> None:
-        logging.info("Running: %s", command_text(command))
-        subprocess.run([str(part) for part in command], check=True)
+        command_args = [str(part) for part in command]
+        display_command = self._display_command(command_args)
+        logging.info("Running: %s", display_command)
+        process_log = (
+            self.active_run_log
+            if command_args and command_args[0] == str(self.run_spades)
+            else None
+        )
+        if process_log is None:
+            subprocess.run(command_args, check=True)
+            return
+
+        process_log.parent.mkdir(parents=True, exist_ok=True)
+        started_at = local_now()
+        with process_log.open("a", encoding="utf-8") as log_handle:
+            log_handle.write(
+                f"\n[{started_at}] COMMAND {display_command}\n"
+                "[combined stdout/stderr]\n"
+            )
+            log_handle.flush()
+            process = subprocess.Popen(
+                command_args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+            )
+            try:
+                assert process.stdout is not None
+                for line in process.stdout:
+                    log_handle.write(line)
+                    log_handle.flush()
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                returncode = process.wait()
+            except BaseException:
+                process.terminate()
+                process.wait()
+                raise
+            log_handle.write(
+                f"\n[{local_now()}] EXIT {returncode}\n"
+            )
+            log_handle.flush()
+        if returncode:
+            raise subprocess.CalledProcessError(returncode, command_args)
 
     def _bam_is_valid(self, path: Optional[Path]) -> bool:
         if path is None or not path.is_file() or path.stat().st_size == 0:
@@ -392,8 +516,6 @@ class StreamSpades:
         ]
         if self.args.spades_data:
             command.extend(["--spades-data", str(self.args.spades_data.resolve())])
-        if self.args.js_external:
-            command.append("--js-external")
         return command
 
     @staticmethod
@@ -422,7 +544,11 @@ class StreamSpades:
         profile_dir = timepoint_dir / "profile"
         chunk_prefix = f"{self.args.prefix}.t{sequence:06d}.chunk"
         profile_prefix = f"{self.args.prefix}.t{sequence:06d}"
-        observed_at = utc_now()
+        observed_at = local_now()
+        # Keep process output outside the disposable in-progress timepoint tree so
+        # failed/interrupted attempts remain available after recovery.
+        run_log = self.output_dir / "logs" / f"{profile_prefix}.run_SPADES.log"
+        self.active_run_log = run_log
 
         if timepoint_dir.exists():
             shutil.rmtree(timepoint_dir)
@@ -436,7 +562,7 @@ class StreamSpades:
         }
         self._save_state()
 
-        logging.info("Processing %s as %s", path, label)
+        logging.info("Processing %s as %s", self._relative_path(path), label)
         chunk_command = self._spades_base_command(chunk_dir, chunk_prefix)
         chunk_command[1:1] = ["-i", str(path.resolve())]
         self._run(chunk_command)
@@ -528,15 +654,16 @@ class StreamSpades:
 
         record = {
             "timepoint": sequence,
-            "observed_at_utc": observed_at,
-            "completed_at_utc": utc_now(),
+            "observed_at": observed_at,
+            "completed_at": local_now(),
             "input_file": signature["path"],
             "size_bytes": signature["size"],
-            "mtime_utc": signature["mtime_utc"],
+            "mtime": signature["mtime"],
             **qc_metrics,
             "chunk_bam": str(chunk_bam.resolve()) if valid_chunk_bam and chunk_bam else "",
             "cumulative_bam": str(cumulative) if cumulative else previous_text,
             "pathogen_full_tsv": str(result.resolve()),
+            "run_log": str(run_log.resolve()),
             "status": status,
         }
         prior_raw_reads = sum(
@@ -567,7 +694,7 @@ class StreamSpades:
         self._save_state()
         self._finalize_pending()
         self.observations.pop(signature["path"], None)
-        logging.info("Saved final timepoint result: %s", result)
+        logging.info("Saved final timepoint result: %s", self._relative_path(result))
 
     def run(self) -> None:
         processed_this_run = 0
@@ -636,7 +763,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ont-error-rate", type=nonnegative_float, default=0.03)
     parser.add_argument("--min-depth", type=positive_int, default=10)
     parser.add_argument("--recursive", action="store_true")
-    parser.add_argument("--js-external", action="store_true")
     parser.add_argument(
         "--once", action="store_true", help="Process currently stable files and exit"
     )
@@ -664,7 +790,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%S",
+        datefmt="%Y-%m-%dT%H:%M:%S%z",
     )
     try:
         validate_args(args)

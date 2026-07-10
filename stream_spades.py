@@ -354,11 +354,10 @@ class StreamSpades:
             )
             try:
                 assert process.stdout is not None
-                for line in process.stdout:
-                    log_handle.write(line)
-                    log_handle.flush()
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                with process.stdout:
+                    for line in process.stdout:
+                        log_handle.write(line)
+                        log_handle.flush()
                 returncode = process.wait()
             except BaseException:
                 process.terminate()

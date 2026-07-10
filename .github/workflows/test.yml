@@ -39,6 +39,11 @@ jobs:
       shell: bash -el {0}
       run: |
         ./scripts/check_install.sh
+
+    - name: Run stream_spades unit tests
+      shell: bash -el {0}
+      run: |
+        python -m unittest discover -v -s test -p 'test_stream_spades.py'
     
     - name: Download test database
       shell: bash -el {0}

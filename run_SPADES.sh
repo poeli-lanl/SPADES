@@ -11,6 +11,8 @@ Usage:
     -i <reads> \
     OR
     -1 <read1> -2 <read2> \
+    OR
+    -b <existing_bam> \
     -o <outdir> \
     -p <prefix> \
     -d <db_path> \
@@ -23,9 +25,10 @@ Usage:
     [--clean]
 
 Input:
-  -i, --input         Single-end reads file (fastq/fq[.gz])
+  -i, --input         Single-end FASTA/FASTQ file (optionally gzipped)
   -1, --read1         Paired-end read 1 (fastq/fq[.gz])
   -2, --read2         Paired-end read 2 (fastq/fq[.gz])
+  -b, --bam           Existing coordinate-sorted GOTTCHA2 BAM (requires .bam.bai)
 
 Required:
   -o, --outdir        Output directory
@@ -36,7 +39,7 @@ Required:
 Optional:
   --spades-data       Directory containing taxonomy_db/ and pathogen.tsv
   --min-depth         Minimum depth for variant calling (default: 10)
-  --ont               Treat input as long reads; will split to 150bp and pass -np to gottcha2
+  --ont               Treat reads/BAM as ONT data; read input is split to 150bp
   --ont-error-rate    Error rate for ONT reads (passed to gottcha2 -er), default: 0.03
   --js-external       Use CDN-hosted JavaScript/CSS assets in generated HTML reports
   --clean             Remove large intermediates after the run
@@ -46,8 +49,10 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.2.1"
+VERSION="1.3.0"
 INPUT=""
+BAM_INPUT=""
+BAM_MODE="false"
 INPUT_QC=""
 READ=""
 OUTDIR=""
@@ -67,6 +72,7 @@ INPUT_QC_R2=""
 JS_EXTERNAL="false"
 MIN_DEPTH="10"
 DB_LEVEL=""
+SKIP_QC="false"
 
 # parse args
 while [[ $# -gt 0 ]]; do
@@ -74,6 +80,7 @@ while [[ $# -gt 0 ]]; do
     -i|--input)        INPUT="${2:-}"; shift 2 ;;
     -1|--read1)        READ1="${2:-}"; shift 2 ;;
     -2|--read2)        READ2="${2:-}"; shift 2 ;;
+    -b|--bam)          BAM_INPUT="${2:-}"; shift 2 ;;
     -o|--outdir)       OUTDIR="${2:-}"; shift 2 ;;
     -p|--prefix)       PREFIX="${2:-}"; shift 2 ;;
     -d|--db-path)      DB_PATH="${2:-}"; shift 2 ;;
@@ -91,7 +98,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 # validate input mode
-if [[ -n "$READ1" || -n "$READ2" ]]; then
+if [[ -n "$BAM_INPUT" ]]; then
+  [[ -z "$INPUT" && -z "$READ1" && -z "$READ2" ]] || {
+    echo "ERROR: --bam cannot be combined with read input" >&2
+    exit 2
+  }
+  [[ -f "$BAM_INPUT" ]] || {
+    echo "ERROR: BAM input not found: $BAM_INPUT" >&2
+    exit 2
+  }
+  [[ -f "$BAM_INPUT.bai" ]] || {
+    echo "ERROR: BAM index not found: $BAM_INPUT.bai" >&2
+    exit 2
+  }
+  BAM_MODE="true"
+elif [[ -n "$READ1" || -n "$READ2" ]]; then
   [[ -z "$INPUT" ]] || {
     echo "ERROR: --input cannot be combined with --read1/--read2" >&2
     exit 2
@@ -111,7 +132,7 @@ if [[ -n "$READ1" || -n "$READ2" ]]; then
   PAIRED="true"
 else
   [[ -n "$INPUT" ]] || {
-    echo "ERROR: missing --input or --read1/--read2" >&2
+    echo "ERROR: missing --input, --read1/--read2, or --bam" >&2
     exit 2
   }
   [[ -f "$INPUT" ]] || {
@@ -128,8 +149,10 @@ DB_PATH="${DB_PATH%.syldb}"
 DB_PATH="${DB_PATH%.zip}"
 DB_PATH="${DB_PATH%.stats}"
 DB_PATH="${DB_PATH%.tax.tsv}"
-[[ -f "$DB_PATH.syldb" ]]   || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
-[[ -f "$DB_PATH.zip" ]]     || { echo "ERROR: GOTTCHA2 signature archive not found: $DB_PATH.zip" >&2; exit 2; }
+if [[ "$BAM_MODE" != "true" ]]; then
+  [[ -f "$DB_PATH.syldb" ]] || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
+  [[ -f "$DB_PATH.zip" ]]   || { echo "ERROR: GOTTCHA2 signature archive not found: $DB_PATH.zip" >&2; exit 2; }
+fi
 [[ -f "$DB_PATH.tax.tsv" ]] || { echo "ERROR: GOTTCHA2 taxonomy file not found: $DB_PATH.tax.tsv" >&2; exit 2; }
 [[ -f "$DB_PATH.stats" ]]   || { echo "ERROR: GOTTCHA2 stats file not found: $DB_PATH.stats" >&2; exit 2; }
 [[ "$CPU" =~ ^[0-9]+$ && "$CPU" -gt 0 ]]|| { echo "ERROR: --cpu must be a positive integer" >&2; exit 2; }
@@ -162,6 +185,19 @@ detect_db_level() {
   printf '%s\n' "$rank"
 }
 
+is_fasta_file() {
+  local path
+  path=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  case "$path" in
+    *.fa|*.fasta|*.fna|*.fa.gz|*.fasta.gz|*.fna.gz)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 DB_LEVEL=$(detect_db_level "$DB_PATH") || exit $?
 
 log_start() {
@@ -185,11 +221,14 @@ create_placeholder_outputs() {
     "$OUTDIR/$PREFIX.pathogen.full.tsv"
     "$OUTDIR/$PREFIX.pathogen.summary.tsv"
     "$OUTDIR/$PREFIX.pathogen.full.html"
-    "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.bam"
     "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.coverage.tsv"
     "$OUTDIR/$PREFIX.coverage.html"
     "$OUTDIR/$PREFIX.info"
   )
+
+  if [[ "$BAM_MODE" != "true" ]]; then
+    outputs+=("$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.bam")
+  fi
 
   for outfile in "${outputs[@]}"; do
     touch "$outfile" || status=$?
@@ -255,8 +294,22 @@ fastplong_qc() {
 }
 
 run_gottcha2() {
-  log_start "Running GOTTCHA2 (fast-profile mode)..."
-  if [[ "$PAIRED" == "true" ]]; then
+  if [[ "$BAM_MODE" == "true" ]]; then
+      log_start "Re-running GOTTCHA2 profiling from existing BAM..."
+      gottcha2 profile \
+              -b "$BAM_INPUT" \
+              -t "$CPU" \
+              -o "$OUTDIR" \
+              -p "$PREFIX" \
+              -d "$DB_PATH" \
+              -r "GENOMIC_CONTENT_EST" \
+              -mf 0.9 \
+              -mg 0 \
+              --mpa \
+              --verbose \
+              $ONT_FLAG
+  elif [[ "$PAIRED" == "true" ]]; then
+      log_start "Running GOTTCHA2 (fast-profile mode)..."
       gottcha2 fast-profile \
               -i "$READ1" "$READ2" \
               -t "$CPU" \
@@ -271,6 +324,7 @@ run_gottcha2() {
               --verbose \
               $ONT_FLAG
   else
+      log_start "Running GOTTCHA2 (fast-profile mode)..."
       gottcha2 fast-profile \
               -i "$READ" \
               -t "$CPU" \
@@ -418,35 +472,49 @@ generate_coverage_browser() {
     js_external_flag="--external"
   fi
 
+  if [[ "$BAM_MODE" == "true" ]]; then
+    bam="$BAM_INPUT"
+  fi
+
   if [[ $status -eq 0 ]]; then
     samtools coverage "$bam" > "$coverage" || status=$?
 
-    # convert FASTA to bgzip format
-    gzip -dc "$ref" | bgzip -@ "$CPU" -c > "$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
-    ref="$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
-    samtools faidx "$ref"
+    if [[ "$BAM_MODE" == "true" && $status -eq 0 ]]; then
+      coverage_browser.py \
+        -c "$coverage" \
+        -f "$full_tsv" \
+        --min-depth "$MIN_DEPTH" \
+        $js_external_flag \
+        -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
+    fi
 
-    # Generate VCF
-    # --ploidy 1 is usually appropriate for bacterial/viral haploid references.
-    bcftools mpileup \
-        -Ou \
-        -f "$ref" \
-        -q 20 \
-        -Q 20 \
-        -a FORMAT/DP,FORMAT/AD \
-        --threads "$CPU" \
-        "$bam" | \
-    bcftools call \
-        -mv \
-        --ploidy 1 \
-        -Oz \
-        --threads "$CPU" \
-        -o "$vcf" || status=$?
-    
-    # index the VCF
-    bcftools index -t "$vcf" || status=$?
+    if [[ "$BAM_MODE" != "true" && $status -eq 0 ]]; then
+      # convert FASTA to bgzip format
+      gzip -dc "$ref" | bgzip -@ "$CPU" -c > "$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
+      ref="$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
+      samtools faidx "$ref"
+
+      # Generate VCF. --ploidy 1 is appropriate for bacterial/viral references.
+      bcftools mpileup \
+          -Ou \
+          -f "$ref" \
+          -q 20 \
+          -Q 20 \
+          -a FORMAT/DP,FORMAT/AD \
+          --threads "$CPU" \
+          "$bam" | \
+      bcftools call \
+          -mv \
+          --ploidy 1 \
+          -Oz \
+          --threads "$CPU" \
+          -o "$vcf" || status=$?
+
+      # index the VCF
+      bcftools index -t "$vcf" || status=$?
+    fi
   fi
-  if [[ $status -eq 0 ]]; then
+  if [[ "$BAM_MODE" != "true" && $status -eq 0 ]]; then
     coverage_browser.py \
       -c "$coverage" \
       -f "$full_tsv" \
@@ -471,12 +539,18 @@ after_run() {
   fastplong --version | sed 's/ /=/' >> "$OUTDIR/$PREFIX.info"
   echo "GOTTCHA2_version=$(gottcha2 profile --version)" >> "$OUTDIR/$PREFIX.info"
   echo "GOTTCHA2_database=$DB_PATH" >> "$OUTDIR/$PREFIX.info"
+  echo "input_mode=$([[ "$BAM_MODE" == "true" ]] && echo bam || echo reads)" >> "$OUTDIR/$PREFIX.info"
+  if [[ "$BAM_MODE" == "true" ]]; then
+    echo "input_bam=$BAM_INPUT" >> "$OUTDIR/$PREFIX.info"
+  fi
   echo "ONT_mode=$ONT" >> "$OUTDIR/$PREFIX.info"
   echo "ONT_error_rate=$ONT_ERROR_RATE" >> "$OUTDIR/$PREFIX.info"
   samtools --version | awk '
     /^samtools / { print "samtools_version="$2 }
     /^Using htslib / { print "samtools_htslib_version="$3 }' >> "$OUTDIR/$PREFIX.info"
-  gzip -dc "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz" | grep "##bcftools" | sed 's/##//' | sed 's/; /\n/' >> "$OUTDIR/$PREFIX.info"
+  if [[ "$BAM_MODE" != "true" ]]; then
+    gzip -dc "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz" | grep "##bcftools" | sed 's/##//' | sed 's/; /\n/' >> "$OUTDIR/$PREFIX.info"
+  fi
 
   local status=$?
   if [[ $status -eq 0 ]]; then
@@ -537,7 +611,9 @@ run_pipeline() {
 
   ONT_FLAG=""
 
-  if [[ "$PAIRED" == "true" ]]; then
+  if [[ "$BAM_MODE" == "true" ]]; then
+    :
+  elif [[ "$PAIRED" == "true" ]]; then
     READ1="$READ1"
     READ2="$READ2"
   else
@@ -546,16 +622,31 @@ run_pipeline() {
 
   prepare_output_dir || exit $?
 
-  if [[ "$ONT" == "true" ]]; then
+  if [[ "$BAM_MODE" == "true" ]]; then
+    if [[ "$ONT" == "true" ]]; then
+      ONT_FLAG="-np -er $ONT_ERROR_RATE"
+    fi
+  elif is_fasta_file "$INPUT"; then
+    SKIP_QC="true"
+    READ="$INPUT"
+    log_success "FASTA input detected; skipping FASTQ quality filtering."
+    if [[ "$ONT" == "true" ]]; then
+      ONT_FLAG="-np -er $ONT_ERROR_RATE"
+    fi
+  elif [[ "$ONT" == "true" ]]; then
     fastplong_qc || exit $?
     ONT_FLAG="-np -er $ONT_ERROR_RATE"
   else
     fastp_qc || exit $?
   fi
 
-  if [[ "$PAIRED" == "true" ]]; then
+  if [[ "$BAM_MODE" == "true" ]]; then
+    :
+  elif [[ "$PAIRED" == "true" ]]; then
     READ1="$INPUT_QC_R1"
     READ2="$INPUT_QC_R2"
+  elif [[ "$SKIP_QC" == "true" ]]; then
+    READ="$INPUT"
   else
     READ="$INPUT_QC"
   fi

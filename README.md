@@ -61,12 +61,30 @@ exist next to it:
   [--clean]
 ```
 
+Re-profile an existing coordinate-sorted and indexed GOTTCHA2 BAM without
+mapping the reads again:
+
+```bash
+./run_SPADES.sh \
+  --bam sample.gottcha_species.bam \
+  -o reprofiled \
+  -p sample_reprofiled \
+  -d /path/to/gottcha_db.species.fna \
+  -t 4 \
+  --ont
+```
+
+The BAM index must be named `<bam>.bai`. Existing-BAM mode runs `gottcha2
+profile --bam`, regenerates the taxonomic/pathogen reports, and creates a
+coverage report without re-mapping reads or re-calling variants.
+
 For detailed instructions on using GOTTCHA2, please see its [wiki page](https://github.com/poeli/GOTTCHA2/wiki).
 
 Options:
-- `-i, --input` Input reads file (fastq/fq[.gz], etc.)
+- `-i, --input` Single-end FASTA/FASTQ reads file (optionally gzipped)
 - `-1, --read1` Paired-end read 1 (fastq/fq[.gz], etc.)
 - `-2, --read2` Paired-end read 2 (fastq/fq[.gz], etc.)
+- `-b, --bam` Existing coordinate-sorted GOTTCHA2 BAM; mutually exclusive with read input
 - `-o, --outdir` Output directory
 - `-p, --prefix` Output prefix (base filename)
 - `-d, --db-path` GOTTCHA2 fast-profile database base path
@@ -141,6 +159,66 @@ This runs a small ONT example using files under `test/` and the bundled data in
 - `--clean` removes the `intermediate/` directory after a successful run, keeping only final output files in the main output directory. Without `--clean`, all intermediate files are preserved in `intermediate/` for debugging.
 - `--min-depth` sets the minimum depth threshold for variant calling in the coverage browser (default: 10).
 - Ensure the database path points to the base file (e.g. `gottcha_db.species.fna`) and that the corresponding `.syldb`, `.zip`, `.stats`, and `.tax.tsv` exist.
+
+## Streaming Oxford Nanopore directories
+
+`stream_spades.py` watches a directory for stable FASTA/FASTQ files (`fa`,
+`fasta`, `fna`, `fq`, or `fastq`, optionally gzip-compressed). Each newly
+observed file becomes one timepoint:
+
+1. Run the read file through `run_SPADES.sh --ont`.
+2. Merge its GOTTCHA2 BAM with the cumulative BAM using `samtools merge`.
+3. Re-profile the merged BAM through `run_SPADES.sh --bam`.
+4. Load raw and post-filter read totals from the FastP/FastPlong JSON report.
+5. Save the timepoint's `*.pathogen.full.tsv`, update `timepoints.tsv`, and
+   atomically refresh the live tracking dashboard.
+
+```bash
+./stream_spades.py \
+  --input-dir /data/ont/fastq_pass \
+  --outdir /results/run_01_stream \
+  --prefix run_01 \
+  --db-path /db/gottcha_db.species.fna \
+  --cpu 8 \
+  --js-external
+```
+
+The monitor waits until a file's size and modification time have remained
+unchanged for `--settle-seconds` (30 seconds by default). Use `--recursive` to
+include subdirectories, `--once --settle-seconds 0` to process an existing
+batch and exit, or `--max-files N` to stop after a fixed number of files.
+When multiple stable files are present, they are processed strictly one at a
+time in modification-time/name order. The next file does not start until the
+current file's cumulative profile and state record are complete.
+
+Streaming output is organized as follows:
+
+```text
+<outdir>/
+  cumulative/<prefix>.gottcha_<level>.bam[.bai]
+  <prefix>.stream.html
+  stream_state.json
+  timepoints.tsv
+  timepoints/timepoint_000001/
+    chunk/       # SPADES result for the newly arrived file
+    profile/     # cumulative re-profile, including *.pathogen.full.tsv
+```
+
+`stream_state.json` makes restarts idempotent: an unchanged input file is not
+processed twice. If a file at the same path changes size or modification time,
+it is treated as a new timepoint. The cumulative BAM is replaced atomically
+after the merged BAM and final report both validate.
+
+`timepoints.tsv` records `raw_reads`, `filtered_reads`, their cumulative totals,
+and the source `qc_json` for every timepoint. `<prefix>.stream.html` is a
+self-contained, auto-refreshing status dashboard. It shows the current and
+overall monitor state, the latest cumulative screening finding, cumulative read
+totals, recent timepoints, and one tile per identified human-pathogenic species.
+Current findings are visually distinguished from historical-only findings.
+Clicking a species expands three line charts tracking supporting read
+alignments, signature coverage (`SIG_COV`), and SNI score over time. The report
+labels these as analytical screening evidence and keeps interpretation and
+confirmation limitations visible for clinical users.
 
 ## Notice of Copyright Assertion (O4958)
 

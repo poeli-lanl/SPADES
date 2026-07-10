@@ -1108,7 +1108,7 @@ function initVueApp() {
                 return pieces.join(', ');
             });
             const sankeySummary = computed(() => {
-                return `${formatNumber(summaryStats.value.rows)} taxa with ${formatNumber(summaryStats.value.reads)} reads`;
+                return `${formatNumber(summaryStats.value.rows)} taxa with parent nodes (${formatNumber(summaryStats.value.reads)} reads)`;
             });
             const levelColorLegend = computed(() => {
                 return availableLevels.value.map((item, index) => ({

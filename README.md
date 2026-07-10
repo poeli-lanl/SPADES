@@ -159,16 +159,9 @@ This runs a small ONT example using files under `test/` and the bundled data in
 
 ## Streaming Oxford Nanopore directories
 
-`stream_spades.py` watches a directory for stable FASTA/FASTQ files (`fa`,
-`fasta`, `fna`, `fq`, or `fastq`, optionally gzip-compressed). Each newly
-observed file becomes one timepoint:
+Run stream_spades.py to continuously monitor a directory for newly generated, stable FASTA/FASTQ files (`.fa`, `.fasta`, `.fna`, `.fq`, or `.fastq`, optionally gzip-compressed) and automatically process them using the SPAdes workflow.
 
-1. Run the read file through `run_SPADES.sh --ont`.
-2. Merge its GOTTCHA2 BAM with the cumulative BAM using `samtools merge`.
-3. Re-profile the merged BAM through `run_SPADES.sh --bam`.
-4. Load raw and post-filter read totals from the FastP/FastPlong JSON report.
-5. Save the timepoint's `*.pathogen.full.tsv`, update `timepoints.tsv`, and
-   atomically refresh the live tracking dashboard.
+Open `<outdir>/<prefix>.stream.html` in your web browser to monitor the workflow in real time. The report is a self-contained dashboard that automatically refreshes as new data and analysis results become available.
 
 ```bash
 ./stream_spades.py \

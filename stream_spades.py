@@ -134,6 +134,10 @@ class StreamSpades:
             self._save_state()
         else:
             self._write_live_report()
+        logging.info(
+            "Open the live report in your browser: %s",
+            self._relative_path(self.report_path),
+        )
 
     def _initial_state(self) -> Dict[str, Any]:
         return {
@@ -499,19 +503,13 @@ class StreamSpades:
     def _spades_base_command(self, outdir: Path, prefix: str) -> List[str]:
         command = [
             str(self.run_spades),
-            "-o",
-            str(outdir),
-            "-p",
-            prefix,
-            "-d",
-            str(self.database),
-            "-t",
-            str(self.args.cpu),
+            "-o", str(outdir),
+            "-p", prefix,
+            "-d", str(self.database),
+            "-t", str(self.args.cpu),
             "--ont",
-            "--ont-error-rate",
-            str(self.args.ont_error_rate),
-            "--min-depth",
-            str(self.args.min_depth),
+            "--ont-error-rate", str(self.args.ont_error_rate),
+            "--min-depth", str(self.args.min_depth),
         ]
         if self.args.spades_data:
             command.extend(["--spades-data", str(self.args.spades_data.resolve())])
@@ -745,30 +743,90 @@ def build_parser() -> argparse.ArgumentParser:
             "Monitor an Oxford Nanopore read directory, run SPADES for every stable "
             "FASTA/FASTQ file, merge each BAM into cumulative alignments, and re-run "
             "GOTTCHA2 profiling at every timepoint."
-        )
+        ),
+        epilog="""
+How it works:
+  New or changed FASTA/FASTQ files become timepoints after their size and
+  modification time remain unchanged for --settle-seconds. Results and state
+  are retained in OUTDIR, so restarting with the same options resumes safely.
+
+Example (continuous monitoring):
+  %(prog)s --input-dir /data/ont/fastq_pass \\
+    --outdir /results/run_01_stream --prefix run_01 \\
+    --db-path /db/gottcha_db.species.fna --cpu 8
+
+Example (process the current files and exit):
+  %(prog)s -i /data/ont/fastq_pass -o /results/run_01_stream \\
+    -p run_01 -d /db/gottcha_db.species.fna --once --settle-seconds 0
+
+Open OUTDIR/PREFIX.stream.html to follow the live report. Pipeline output is
+saved under OUTDIR/logs/. Press Ctrl-C to stop continuous monitoring; run the
+same command again to resume.
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("-i", "--input-dir", type=Path, required=True)
-    parser.add_argument("-o", "--outdir", type=Path, required=True)
-    parser.add_argument("-p", "--prefix", required=True)
-    parser.add_argument("-d", "--db-path", type=Path, required=True)
-    parser.add_argument("-t", "--cpu", type=positive_int, default=1)
     parser.add_argument(
-        "--run-spades", type=Path, default=script_dir / "run_SPADES.sh"
+        "-i", "--input-dir", type=Path, required=True, metavar="DIR",
+        help="Directory containing arriving ONT FASTA/FASTQ files",
     )
-    parser.add_argument("--spades-data", type=Path)
-    parser.add_argument("--samtools", default="samtools")
-    parser.add_argument("--poll-interval", type=nonnegative_float, default=5.0)
-    parser.add_argument("--settle-seconds", type=nonnegative_float, default=30.0)
-    parser.add_argument("--ont-error-rate", type=nonnegative_float, default=0.03)
-    parser.add_argument("--min-depth", type=positive_int, default=10)
-    parser.add_argument("--recursive", action="store_true")
+    parser.add_argument(
+        "-o", "--outdir", type=Path, required=True, metavar="DIR",
+        help="Output directory for state, logs, timepoints, and the live report",
+    )
+    parser.add_argument(
+        "-p", "--prefix", required=True, metavar="NAME",
+        help="Filename prefix for reports and analysis results",
+    )
+    parser.add_argument(
+        "-d", "--db-path", type=Path, required=True, metavar="PATH",
+        help="GOTTCHA2 database base path, such as gottcha_db.species.fna",
+    )
+    parser.add_argument(
+        "-t", "--cpu", type=positive_int, default=1, metavar="N",
+        help="Worker threads passed to SPADES and samtools (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--run-spades", type=Path, default=script_dir / "run_SPADES.sh", metavar="PATH",
+        help="Path to run_SPADES.sh (default: next to this script)",
+    )
+    parser.add_argument(
+        "--spades-data", type=Path, metavar="DIR",
+        help="Data directory passed to run_SPADES.sh",
+    )
+    parser.add_argument(
+        "--samtools", default="samtools", metavar="COMMAND",
+        help="samtools executable or path (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--poll-interval", type=nonnegative_float, default=5.0, metavar="SECONDS",
+        help="Delay between input-directory scans (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--settle-seconds", type=nonnegative_float, default=30.0, metavar="SECONDS",
+        help="Time a file must remain unchanged before processing (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--ont-error-rate", type=nonnegative_float, default=0.03, metavar="RATE",
+        help="ONT error rate passed to run_SPADES.sh (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--min-depth", type=positive_int, default=10, metavar="N",
+        help="Minimum variant-calling depth passed to run_SPADES.sh (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--recursive", action="store_true",
+        help="Watch input-directory subdirectories too",
+    )
     parser.add_argument(
         "--once", action="store_true", help="Process currently stable files and exit"
     )
     parser.add_argument(
-        "--max-files", type=positive_int, help="Exit after this many files"
+        "--max-files", type=positive_int, metavar="N",
+        help="Exit after processing this many files"
     )
-    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show detailed diagnostic messages"
+    )
     return parser
 
 
@@ -791,6 +849,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         format="[%(asctime)s] [%(levelname)s] %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+
+    logging.info("Starting SPADES-GOTTCHA2 in stream mode...")
+    logging.info("Monitoring input directory: %s", args.input_dir)
+    logging.info("Writing results, state, and logs to: %s", args.outdir)
+    if args.once:
+        logging.info("One-shot mode: process currently stable files, then exit")
+    else:
+        logging.info("Continuous mode: press Ctrl-C to stop; rerun to resume")
+
     try:
         validate_args(args)
         StreamSpades(args).run()

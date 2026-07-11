@@ -329,11 +329,9 @@ class StreamSpades:
     def _run(self, command: Sequence[str]) -> None:
         command_args = [str(part) for part in command]
         display_command = self._display_command(command_args)
-        logging.info("Running: %s", display_command)
+        logging.debug("Running: %s", display_command)
         process_log = (
-            self.active_run_log
-            if command_args and command_args[0] == str(self.run_spades)
-            else None
+            self.active_run_log if command_args else None
         )
         if process_log is None:
             subprocess.run(command_args, check=True)
@@ -607,8 +605,7 @@ class StreamSpades:
                 self.args.samtools,
                 "merge",
                 "-f",
-                "-@",
-                str(self.args.cpu),
+                "-@", str(self.args.cpu),
                 str(merged_unsorted),
                 *[str(item) for item in merge_inputs],
             ]
@@ -617,10 +614,8 @@ class StreamSpades:
                 [
                     self.args.samtools,
                     "sort",
-                    "-@",
-                    str(self.args.cpu),
-                    "-o",
-                    str(candidate),
+                    "-@", str(self.args.cpu),
+                    "-o", str(candidate),
                     str(merged_unsorted),
                 ]
             )

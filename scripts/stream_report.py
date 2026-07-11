@@ -464,7 +464,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div>
       <div class="eyebrow">SPADES-GOTTCHA2</div><h1>REPORT_HEADING</h1>
       <div class="header-meta">
-        <span class="meta-pill" :title="payload.current.detail"><span class="status-dot" :class="payload.current.tone"></span>Processing batch: <strong>{{ payload.processing_batch ? `B${payload.processing_batch}` : 'waiting' }}</strong></span>
+        <span class="meta-pill" :title="payload.current.detail"><span class="status-dot" :class="payload.current.tone"></span>Processing batch: <strong>{{ payload.processing_batch ? `B${payload.processing_batch}` : 'stopped' }}</strong></span>
         <span class="meta-pill"><i class="pi pi-check-circle"></i>Batches completed: <strong>{{ formatNumber(payload.summary.timepoints) }}</strong></span>
         <span class="meta-pill"><i class="pi pi-clock"></i>{{ formatTime(payload.generated_at) }}</span>
         <span class="meta-pill"><i class="pi pi-database"></i>{{ payload.configuration.database_display || '—' }}</span>

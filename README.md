@@ -159,7 +159,7 @@ This runs a small ONT example using files under `test/` and the bundled data in
 
 ## Streaming Oxford Nanopore directories
 
-Run stream_spades.py to continuously monitor a directory for newly generated, stable FASTA/FASTQ files (`.fa`, `.fasta`, `.fna`, `.fq`, or `.fastq`, optionally gzip-compressed) and automatically process them using the SPAdes workflow.
+Run `stream_spades.py` to continuously monitor a directory for newly generated, stable FASTA/FASTQ files (`.fa`, `.fasta`, `.fna`, `.fq`, or `.fastq`, optionally gzip-compressed) and automatically process them using the SPADES workflow.
 
 Open `<outdir>/<prefix>.stream.html` in your web browser to monitor the workflow in real time. The report is a self-contained dashboard that automatically refreshes as new data and analysis results become available.
 

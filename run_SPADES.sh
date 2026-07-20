@@ -619,12 +619,16 @@ run_pipeline() {
       ONT_FLAG="-np -er $ONT_ERROR_RATE"
     fi
   elif [[ "$SKIP_QC" == "true" ]]; then
-    READ="$INPUT"
-    log_success "Skipping quality control step (--skip-qc flag set)."
+    if [[ "$PAIRED" == "true" ]]; then
+      log_success "Skipping quality control step (--skip-qc flag set)."
+    else
+      READ="$INPUT"
+      log_success "Skipping quality control step (--skip-qc flag set)."
+    fi
     if [[ "$ONT" == "true" ]]; then
       ONT_FLAG="-np -er $ONT_ERROR_RATE"
     fi
-  elif is_fasta_file "$INPUT"; then
+  elif [[ "$PAIRED" != "true" ]] && is_fasta_file "$INPUT"; then
     SKIP_QC="true"
     READ="$INPUT"
     log_success "FASTA input detected; skipping FASTQ quality filtering."
@@ -641,8 +645,13 @@ run_pipeline() {
   if [[ "$BAM_MODE" == "true" ]]; then
     :
   elif [[ "$PAIRED" == "true" ]]; then
-    READ1="$INPUT_QC_R1"
-    READ2="$INPUT_QC_R2"
+    if [[ "$SKIP_QC" == "true" ]]; then
+      READ1="$READ1"
+      READ2="$READ2"
+    else
+      READ1="$INPUT_QC_R1"
+      READ2="$INPUT_QC_R2"
+    fi
   elif [[ "$SKIP_QC" == "true" ]]; then
     READ="$INPUT"
   else

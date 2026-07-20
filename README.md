@@ -57,6 +57,7 @@ exist next to it:
   [--spades-data data/] \
   [--ont] \
   [--ont-error-rate 0.03] \
+  [--skip-qc] \
   [--clean]
 ```
 
@@ -93,6 +94,7 @@ Options:
 - `--ont-error-rate` Error rate for ONT reads passed to GOTTCHA2 (`-er`), default: `0.03`
 - `--clean` Remove intermediate files after the run (see Outputs section for details)
 - `--min-depth` Minimum depth for variant calling (default: 10)
+- `--skip-qc` Skip fastp/fastplong quality control and preprocessing steps
 - `--version` Show script version and exit
 - `-h, --help` Show usage
 

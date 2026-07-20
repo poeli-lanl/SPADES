@@ -50,7 +50,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.3.0"
+VERSION="1.3.1"
 INPUT=""
 BAM_INPUT=""
 BAM_MODE="false"

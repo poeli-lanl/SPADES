@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 
 HTML_ASSET_DIR = Path(__file__).resolve().parent.parent / "data" / "html"
-DEFAULT_LEVELS = ("genus", "species", "strain")
+DEFAULT_LEVELS = ("species")
 DEFAULT_MIN_READ_COUNT = 0
 SNI_THRESHOLDS = {"species": 0.95, "strain": 0.99}
 DEFAULT_SNI_THRESHOLD = 0.90
@@ -476,7 +476,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </header>
   <section class="stats-grid">
-    <article class="metric-card"><div class="metric-label">Human pathogens</div><div class="metric-value">{{ formatNumber(payload.summary.human_pathogens_latest) }}</div><div class="metric-note">detected and requiring review</div></article>
+    <article class="metric-card"><div class="metric-label">Human pathogens</div><div class="metric-value">{{ formatNumber(payload.summary.human_pathogens_latest) }}</div><div class="metric-note">taxa detected and requiring review</div></article>
     <article class="metric-card"><div class="metric-label">Taxa in latest result</div><div class="metric-value">{{ formatNumber(totalLatestTaxa.length) }}</div><div class="metric-note">across reported taxonomic levels</div></article>
     <article class="metric-card"><div class="metric-label">Input reads</div><div class="metric-value">{{ formatNumber(payload.summary.raw_reads) }}</div><div class="metric-note">from {{ payload.summary.qc_timepoints }} QC batches</div></article>
     <article class="metric-card"><div class="metric-label">Post-QC records</div><div class="metric-value">{{ formatNumber(payload.summary.filtered_reads) }}</div><div class="metric-note">available to cumulative profiling</div></article>
@@ -501,7 +501,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <p-column field="latest.read_count" header="READ_COUNT" sortable style="min-width:180px"><template #body="slot"><span class="value-cell">{{ formatNullable(slot.data.latest.read_count) }}</span><change-pill v-if="slot.data.change.read_count > 0" tone="read" metric="READ_COUNT" format="integer" :value="slot.data.change.read_count"></change-pill></template></p-column>
       <p-column field="latest.best_sig_cov" header="BEST_SIG_COV" sortable style="min-width:205px"><template #body="slot"><span class="value-cell">{{ formatCoverage(slot.data.latest.best_sig_cov) }}</span><change-pill v-if="slot.data.change.best_sig_cov > 0" tone="coverage" metric="BEST_SIG_COV" format="percent" :value="slot.data.change.best_sig_cov"></change-pill></template></p-column>
       <p-column field="latest.sni_score" header="SNI_SCORE" sortable style="min-width:185px"><template #body="slot"><span class="value-cell">{{ formatSni(slot.data.latest.sni_score) }}</span><change-pill v-if="slot.data.change.sni_score > 0" tone="sni" metric="SNI_SCORE" format="decimal" :value="slot.data.change.sni_score"></change-pill></template></p-column>
-      <p-column field="first_seen" header="Observed" sortable style="min-width:130px"><template #body="slot">B{{ slot.data.first_seen }}–B{{ slot.data.last_seen }}</template></p-column>
+      <p-column field="first_seen" header="First Observed" sortable style="min-width:130px"><template #body="slot">B{{ slot.data.first_seen }}</template></p-column>
       <template #expansion="slot"><div class="history"><div class="history-head"><div><strong>{{ slot.data.name }} metric history</strong><br><span>Missing values remain gaps; charts update in place with each cumulative result.</span></div><span>{{ slot.data.history.length }} observations</span></div><div class="chart-grid"><history-chart title="READ_COUNT" field="read_count" color="#197278" :history="slot.data.history" format="integer"></history-chart><history-chart title="BEST_SIG_COV" field="best_sig_cov" color="#3f7cac" :history="slot.data.history" format="percent"></history-chart><history-chart title="SNI_SCORE" field="sni_score" color="#d95d39" :history="slot.data.history" format="decimal"></history-chart></div></div></template>
     </p-data-table>
   </section>

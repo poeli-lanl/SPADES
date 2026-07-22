@@ -309,6 +309,7 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "revision": f"{len(records)}:{latest_timepoint}:{monitor_status}:{pending.get('stage', '')}",
         "configuration": configuration,
+        "run_spades_version": str(state.get("run_spades_version", "")),
         "monitor_status": monitor_status,
         "processing_batch": int(pending.get("timepoint", 0)) if pending else None,
         "current": current,
@@ -526,7 +527,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </p-data-table>
   </section>
   <section class="panel batch-panel"><div class="panel-heading"><div><h2 class="panel-title">Analysis batches</h2><p class="panel-subtitle">Paths are relative to this report wherever possible. Times use the local system timezone.</p></div></div><div class="batch-table-wrap"><table class="batch-table"><thead><tr><th>Batch</th><th>Input</th><th>Input reads</th><th>Post-QC</th><th>Status</th><th>Completed</th><th>Pipeline log</th></tr></thead><tbody><tr v-for="item in reversedTimepoints" :key="item.timepoint"><td><strong>B{{ String(item.timepoint).padStart(6,'0') }}</strong></td><td class="path-cell" :title="item.input_path">{{ item.input_file }}</td><td>{{ formatNullable(item.raw_reads) }}</td><td>{{ formatNullable(item.filtered_reads) }}</td><td><span class="status-tag" :class="item.status">{{ item.status.replace('_',' ') }}</span></td><td>{{ formatTime(item.completed_at) }}</td><td class="path-cell" :title="item.run_log">{{ item.run_log || '—' }}</td></tr><tr v-if="!payload.timepoints.length"><td colspan="7" class="empty">No completed batches yet.</td></tr></tbody></table></div></section>
-  <footer><span>Input: {{ payload.configuration.input_dir || '—' }}</span><span>SPADES-GOTTCHA2 REALTIME REPORT</span></footer>
+  <footer><span>Input: {{ payload.configuration.input_dir || '—' }}</span><span>run_SPADES v{{ payload.run_spades_version || 'unavailable' }}</span><span>SPADES-GOTTCHA2 REALTIME REPORT</span></footer>
 </main>
 <script id="report-data" type="application/json">__REPORT_DATA__</script>
 <script>

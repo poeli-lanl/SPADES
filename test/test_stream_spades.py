@@ -114,6 +114,7 @@ class StreamSpadesTests(unittest.TestCase):
             db_path=self.database,
             cpu=2,
             run_spades=self.run_spades,
+            run_spades_version="test-1.2.3",
             spades_data=None,
             samtools="samtools",
             poll_interval=0.0,
@@ -200,6 +201,8 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertIsNone(payload["summary"]["filtered_reads"])
         report = (self.output_dir / "stream.stream.html").read_text(encoding="utf-8")
         self.assertIn("formatNullable(payload.summary.filtered_reads)", report)
+        self.assertIn("run_SPADES v{{ payload.run_spades_version", report)
+        self.assertIn('"run_spades_version":"test-1.2.3"', report)
 
     def test_recursive_scan_finds_reads_in_subdirectories(self):
         self.args.recursive = True

@@ -179,12 +179,37 @@ def command_text(command: Sequence[str]) -> str:
     return shlex.join(str(part) for part in command)
 
 
+def detect_run_spades_version(path: Path) -> str:
+    """Return the version reported by run_SPADES.sh, if available."""
+    try:
+        result = subprocess.run(
+            [str(path), "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    if result.returncode:
+        return ""
+    return next(
+        (line.strip() for line in result.stdout.splitlines() if line.strip()),
+        "",
+    )
+
+
 class StreamSpades:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.input_dir = args.input_dir.resolve()
         self.output_dir = args.outdir.resolve()
         self.run_spades = args.run_spades.resolve()
+        self.run_spades_version = str(
+            getattr(args, "run_spades_version", "")
+            or detect_run_spades_version(self.run_spades)
+        )
         self.database = database_base(args.db_path).resolve()
         self.state_path = self.output_dir / "stream_state.json"
         self.manifest_path = self.output_dir / "timepoints.tsv"
@@ -192,6 +217,7 @@ class StreamSpades:
         self.active_run_log: Optional[Path] = None
         self.observations: Dict[str, Tuple[int, int, float]] = {}
         self.state = self._load_state()
+        self.state["run_spades_version"] = self.run_spades_version
         self._recover_pending_timepoint()
         if self._backfill_qc_metrics():
             self._save_state()
@@ -216,6 +242,7 @@ class StreamSpades:
             "cumulative_bam": "",
             "cumulative_fasta": "",
             "latest_outputs": {},
+            "run_spades_version": self.run_spades_version,
             "db_level": "",
             "monitor_status": "stopped",
             "pending": None,

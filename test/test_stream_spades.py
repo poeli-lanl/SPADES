@@ -259,13 +259,13 @@ class StreamSpadesTests(unittest.TestCase):
         report = (self.output_dir / "stream.stream.html").read_text(encoding="utf-8")
         self.assertIn("Latest profiling results", report)
         self.assertIn("Analysis batches", report)
-        self.assertIn("Post-QC records", report)
+        self.assertIn("Post-QC reads", report)
         self.assertIn("Test pathogen", report)
         self.assertIn('"read_count":20', report)
         self.assertIn('"best_sig_cov":0.2', report)
         self.assertIn('"sni_score":0.97', report)
-        self.assertIn("Open full report", report)
-        self.assertIn("Coverage report", report)
+        self.assertIn("Taxa report", report)
+        self.assertIn("Coverage", report)
         self.assertIn(
             '"pathogen_full_html":"cumulative/stream.pathogen.full.html"', report
         )

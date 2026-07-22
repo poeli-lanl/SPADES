@@ -175,36 +175,52 @@ Open `<outdir>/<prefix>.stream.html` in your web browser to monitor the workflow
 ```
 
 The monitor waits until a file's size and modification time have remained
-unchanged for `--settle-seconds` (30 seconds by default). Use `--recursive` to
-include subdirectories, `--once --settle-seconds 0` to process an existing
-batch and exit, or `--max-files N` to stop after a fixed number of files.
+unchanged for `--settle-seconds` (30 seconds by default). Subdirectories are
+included by default; use `--no-recursive` to watch only the input directory,
+`--once --settle-seconds 0` to process an existing batch and exit, or
+`--max-files N` to stop after a fixed number of files.
 When multiple stable files are present, they are processed strictly one at a
 time in modification-time/name order. The next file does not start until the
 current file's cumulative profile and state record are complete.
+
+Per-timepoint working files are removed after successful processing by default.
+Use `--keep-timepoints` when chunk and staged profile files are needed for
+troubleshooting.
 
 Streaming output is organized as follows:
 
 ```text
 <outdir>/
   cumulative/<prefix>.gottcha_<level>.bam[.bai]
+  cumulative/<prefix>.sylph_extracted.fa.gz
+  cumulative/<prefix>.pathogen.full.tsv
+  cumulative/<prefix>.pathogen.full.html
+  cumulative/<prefix>.gottcha_<level>.coverage.tsv
+  cumulative/...       # other files from the latest cumulative profile
   <prefix>.stream.html
   stream_state.json
   timepoints.tsv
-  timepoints/timepoint_000001/
-    chunk/       # SPADES result for the newly arrived file
-    profile/     # cumulative re-profile, including *.pathogen.full.tsv
+  logs/
 ```
+
+With `--keep-timepoints`, each batch also retains
+`timepoints/timepoint_000001/chunk/` and
+`timepoints/timepoint_000001/profile/`.
 
 `stream_state.json` makes restarts idempotent: an unchanged input file is not
 processed twice. If a file at the same path changes size or modification time,
 it is treated as a new timepoint. The cumulative BAM is replaced atomically
 after the merged BAM and final report both validate.
 
-`timepoints.tsv` records `raw_reads`, `filtered_reads`, their cumulative totals,
-and the source `qc_json` for every timepoint. `<prefix>.stream.html` is a
+`timepoints.tsv` records `raw_reads`, `filtered_reads`, and their cumulative
+totals for every timepoint. With `--keep-timepoints`, it also records the retained
+`qc_json` path. `<prefix>.stream.html` is a
 self-contained, auto-refreshing status dashboard. It shows the current and
 overall monitor state, the latest cumulative screening finding, cumulative read
 totals, recent timepoints, and one tile per identified human-pathogenic species.
+The latest-results section links directly to the cumulative
+`<prefix>.pathogen.full.html` report and `<prefix>.coverage.html` coverage report
+from pills beside the database name in the dashboard header.
 Current findings are visually distinguished from historical-only findings.
 Clicking a species expands three line charts tracking supporting read
 alignments, signature coverage (`SIG_COV`), and SNI score over time. The report

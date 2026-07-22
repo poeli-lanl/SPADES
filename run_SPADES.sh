@@ -99,6 +99,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+set -xe
+
 # validate input mode
 if [[ -n "$BAM_INPUT" ]]; then
   [[ -z "$INPUT" && -z "$READ1" && -z "$READ2" ]] || {
@@ -473,15 +475,7 @@ generate_coverage_browser() {
   if [[ $status -eq 0 ]]; then
     samtools coverage "$bam" > "$coverage" || status=$?
 
-    if [[ "$BAM_MODE" == "true" && $status -eq 0 ]]; then
-      coverage_browser.py \
-        -c "$coverage" \
-        -f "$full_tsv" \
-        --min-depth "$MIN_DEPTH" \
-        -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
-    fi
-
-    if [[ "$BAM_MODE" != "true" && $status -eq 0 ]]; then
+    if [[ -f "$ref" && $status -eq 0 ]]; then
       # convert FASTA to bgzip format
       gzip -dc "$ref" | bgzip -@ "$CPU" -c > "$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
       ref="$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
@@ -507,11 +501,18 @@ generate_coverage_browser() {
       bcftools index -t "$vcf" || status=$?
     fi
   fi
-  if [[ "$BAM_MODE" != "true" && $status -eq 0 ]]; then
+
+  if [[ -f "$vcf" && $status -eq 0 ]]; then
     coverage_browser.py \
       -c "$coverage" \
       -f "$full_tsv" \
       --vcf "$vcf" \
+      --min-depth "$MIN_DEPTH" \
+      -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
+  else
+    coverage_browser.py \
+      -c "$coverage" \
+      -f "$full_tsv" \
       --min-depth "$MIN_DEPTH" \
       -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
   fi

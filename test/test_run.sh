@@ -45,3 +45,15 @@
     -d gottcha2_database_test/gottcha_db.species.fna \
     --min-depth 5 \
     -t 4
+
+mkdir -p SRR8959866_stream_input/batch_001
+cp -p SRR8959866_sampled_1000read.fastq.gz SRR8959866_stream_input/batch_001/
+
+../stream_spades.py \
+    --input-dir SRR8959866_stream_input \
+    --outdir SRR8959866_test_stream \
+    --prefix SRR8959866_test_stream \
+    --db-path gottcha2_database_test/gottcha_db.species.fna \
+    --cpu 4 \
+    --once \
+    --settle-seconds 0

@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 
 HTML_ASSET_DIR = Path(__file__).resolve().parent.parent / "data" / "html"
-DEFAULT_LEVELS = ("species")
+DEFAULT_LEVELS = ("species",)
 DEFAULT_MIN_READ_COUNT = 0
 SNI_THRESHOLDS = {"species": 0.95, "strain": 0.99}
 DEFAULT_SNI_THRESHOLD = 0.90
@@ -198,7 +198,11 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
             }
         )
 
-        for row in _taxon_rows(result_path):
+        stored_rows = record.get("profile_rows")
+        taxon_rows = (
+            stored_rows if isinstance(stored_rows, list) else _taxon_rows(result_path)
+        )
+        for row in taxon_rows:
             taxid = str(row.get("TAXID", "")).strip()
             name = str(row.get("NAME", "Unknown species")).strip() or "Unknown species"
             level = str(row.get("LEVEL", "unknown")).strip().lower() or "unknown"
@@ -221,7 +225,7 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
                     "completed_at": completed_at,
                     "read_count": _integer(row.get("READ_COUNT")),
                     "best_sig_cov": _normalized_fraction(
-                        row.get("BEST_SIG_COV", row.get("SIG_COV"))
+                        row.get("BEST_SIG_COV") or row.get("SIG_COV")
                     ),
                     "sni_score": _normalized_fraction(row.get("SNI_SCORE")),
                     "human_pathogen": human_pathogen,
@@ -292,6 +296,15 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
         configuration.get("input_dir", ""), base_dir
     )
     configuration["database_display"] = _database_label(database)
+    latest_record = records[-1] if records else {}
+    latest_values = dict(state.get("latest_outputs", {}))
+    for field in ("pathogen_full_tsv", "pathogen_full_html", "coverage_tsv"):
+        if not latest_values.get(field) and latest_record.get(field):
+            latest_values[field] = latest_record[field]
+    latest_outputs = {
+        field: _relative_path(latest_values.get(field, ""), base_dir)
+        for field in ("pathogen_full_tsv", "pathogen_full_html", "coverage_tsv", "coverage_html")
+    }
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "revision": f"{len(records)}:{latest_timepoint}:{monitor_status}:{pending.get('stage', '')}",
@@ -308,7 +321,11 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
         "summary": {
             "timepoints": len(timepoints),
             "raw_reads": sum(raw_values),
-            "filtered_reads": sum(filtered_values),
+            "filtered_reads": (
+                sum(filtered_values)
+                if len(filtered_values) == len(timepoints)
+                else None
+            ),
             "qc_timepoints": len(raw_values),
             "taxa": len(pathogen_list),
             "taxa_latest": len(latest_taxa),
@@ -316,6 +333,7 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
             "human_pathogens_latest": len(latest_human_pathogens),
         },
         "latest_timepoint": latest_timepoint,
+        "latest_outputs": latest_outputs,
         "timepoints": timepoints,
         "pathogens": pathogen_list,
     }
@@ -413,6 +431,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .stream-button.primary { border-color:var(--teal); background:var(--teal); color:#fff; }
     .stream-button.primary:hover:not(:disabled) { border-color:var(--teal-dark); background:var(--teal-dark); color:#fff; }
     .stream-button i { font-size:.78rem; }
+    a.stream-button { text-decoration:none; }
+    .result-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; }
     .stats-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
     .metric-card,.panel { border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.96); box-shadow:var(--shadow); }
     .metric-card { padding:16px; } .metric-label { color:var(--muted); font-size:.72rem; font-weight:800; letter-spacing:.055em; text-transform:uppercase; }
@@ -478,8 +498,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <section class="stats-grid">
     <article class="metric-card"><div class="metric-label">Human pathogens</div><div class="metric-value">{{ formatNumber(payload.summary.human_pathogens_latest) }}</div><div class="metric-note">taxa detected and requiring review</div></article>
     <article class="metric-card"><div class="metric-label">Taxa in latest result</div><div class="metric-value">{{ formatNumber(totalLatestTaxa.length) }}</div><div class="metric-note">across reported taxonomic levels</div></article>
-    <article class="metric-card"><div class="metric-label">Input reads</div><div class="metric-value">{{ formatNumber(payload.summary.raw_reads) }}</div><div class="metric-note">from {{ payload.summary.qc_timepoints }} QC batches</div></article>
-    <article class="metric-card"><div class="metric-label">Post-QC records</div><div class="metric-value">{{ formatNumber(payload.summary.filtered_reads) }}</div><div class="metric-note">available to cumulative profiling</div></article>
+    <article class="metric-card"><div class="metric-label">Input reads</div><div class="metric-value">{{ formatNumber(payload.summary.raw_reads) }}</div><div class="metric-note">from {{ payload.summary.qc_timepoints }} batches</div></article>
+    <article class="metric-card"><div class="metric-label">Post-QC reads</div><div class="metric-value">{{ formatNullable(payload.summary.filtered_reads) }}</div><div class="metric-note">available to cumulative profiling</div></article>
   </section>
   <section class="panel filters-panel" aria-label="Result filters">
     <div class="filters-heading"><div><h2>Result filters</h2><p>Filters update the table in place and remain active as new batches arrive.</p></div><span class="filter-status" :class="{active:activeFilterCount}"><i class="pi pi-filter"></i>{{ activeFilterCount ? `${activeFilterCount} active` : 'All taxa' }}</span></div>
@@ -493,7 +513,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </section>
   <section class="panel">
-    <div class="panel-heading"><div><h2 class="panel-title">Latest profiling results</h2><p class="panel-subtitle">Expand a taxon to inspect normalized metric history. Change pills compare the latest observation with the immediately preceding observation.</p></div><span class="count-pill">{{ formatNumber(filteredTaxa.length) }} of {{ formatNumber(totalLatestTaxa.length) }} taxa</span></div>
+    <div class="panel-heading"><div><h2 class="panel-title">Latest profiling results</h2><p class="panel-subtitle">Expand a taxon to inspect normalized metric history. Change pills compare the latest observation with the immediately preceding observation.</p></div><div class="result-actions"><a v-if="payload.latest_outputs.pathogen_full_html" class="stream-button primary" :href="payload.latest_outputs.pathogen_full_html"><i class="pi pi-chart-bar"></i><span>Taxa report</span></a><a v-if="payload.latest_outputs.coverage_html" class="stream-button" :href="payload.latest_outputs.coverage_html"><i class="pi pi-chart-line"></i><span>Coverage</span></a><span class="count-pill">{{ formatNumber(filteredTaxa.length) }} of {{ formatNumber(totalLatestTaxa.length) }} taxa</span></div></div>
     <p-data-table v-model:expanded-rows="expandedRows" v-model:selection="selectedRows" :value="filteredTaxa" data-key="key" state-storage="local" state-key="spades-stream-results-v2" selection-mode="multiple" :meta-key-selection="false" paginator :rows="25" :rows-per-page-options="[10,25,50,100]" striped-rows removable-sort @row-expand="onRowExpand" @row-collapse="onRowCollapse">
       <template #empty><div class="empty">No taxa match the active filters.</div></template>
       <p-column expander style="width:3.5rem"></p-column>

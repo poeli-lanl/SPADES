@@ -99,8 +99,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-set -xe
-
 # validate input mode
 if [[ -n "$BAM_INPUT" ]]; then
   [[ -z "$INPUT" && -z "$READ1" && -z "$READ2" ]] || {

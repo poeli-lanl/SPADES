@@ -1329,6 +1329,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.info("Writing results, state, and logs to: %s", args.outdir)
     if args.once:
         logging.info("One-shot mode: process currently stable files, then exit")
+    elif args.max_files:
+        logging.info(
+            "Continuous mode: process up to %d files, then exit", args.max_files
+        )
     else:
         logging.info("Continuous mode: press Ctrl-C to stop; rerun to resume")
 

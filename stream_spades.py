@@ -959,7 +959,7 @@ class StreamSpades:
         candidate_fasta: Optional[Path] = None
         cumulative_fasta: Optional[Path] = None
         db_level = self.state.get("db_level", "")
-        status = "profiled"
+        status = "processed"
 
         if valid_chunk_bam or previous_bam is not None:
             if valid_chunk_bam and chunk_bam is not None:

@@ -224,6 +224,10 @@ class StreamSpades:
         else:
             self._write_live_report()
         logging.info(
+            "run_SPADES version: %s",
+            self.run_spades_version
+        )
+        logging.info(
             "Open the live report in your browser: %s",
             self._relative_path(self.report_path),
         )
@@ -1195,9 +1199,8 @@ def build_parser() -> argparse.ArgumentParser:
     script_dir = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(
         description=(
-            "Monitor an Oxford Nanopore read directory, run SPADES for every stable "
-            "FASTA/FASTQ file, merge each BAM into cumulative alignments, and re-run "
-            "GOTTCHA2 profiling at every timepoint."
+            "Real-time Oxford Nanopore analysis tool that monitors a read directory,"
+            "processes each stable FASTA/FASTQ file with SPADES-GOTTCHA2, and updates profiling when new data arrives."
         ),
         epilog="""
 How it works:

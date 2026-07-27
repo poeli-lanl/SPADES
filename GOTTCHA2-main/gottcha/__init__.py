@@ -1,2 +1,0 @@
-GOTTCHA_DB_FULL_LATEST = "https://ref-db.edgebioinformatics.org/gottcha2/latest/gottcha_db.species.tar"
-GOTTCHA_DB_FAST_LATEST = "https://ref-db.edgebioinformatics.org/gottcha2/latest/gottcha_db.fast.species.tar"

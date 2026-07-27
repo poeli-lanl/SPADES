@@ -261,8 +261,16 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
         )
     )
     latest_taxa = [item for item in pathogen_list if item["present_latest"]]
-    human_pathogens = [item for item in pathogen_list if item["human_pathogen"]]
-    latest_human_pathogens = [item for item in latest_taxa if item["human_pathogen"]]
+    human_pathogen_species = [
+        item
+        for item in pathogen_list
+        if item["level"] == "species" and item["human_pathogen"]
+    ]
+    latest_human_pathogen_species = [
+        item
+        for item in latest_taxa
+        if item["level"] == "species" and item["human_pathogen"]
+    ]
 
     raw_values = [item["raw_reads"] for item in timepoints if item["raw_reads"] is not None]
     filtered_values = [
@@ -330,8 +338,8 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
             "qc_timepoints": len(raw_values),
             "taxa": len(pathogen_list),
             "taxa_latest": len(latest_taxa),
-            "human_pathogens": len(human_pathogens),
-            "human_pathogens_latest": len(latest_human_pathogens),
+            "human_pathogens": len(human_pathogen_species),
+            "human_pathogens_latest": len(latest_human_pathogen_species),
         },
         "latest_timepoint": latest_timepoint,
         "latest_outputs": latest_outputs,
@@ -418,6 +426,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .header-meta { margin-top:13px; }
     .meta-pill,.count-pill,.filter-status { display:inline-flex; align-items:center; gap:7px; min-height:30px; border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,.84); color:var(--muted); font-size:.8rem; font-weight:700; padding:0 11px; }
     .meta-pill strong { color:var(--ink); }
+    .count-pill.active { border-color:#badbd6; background:var(--teal-soft); color:var(--teal-dark); }
     .status-dot { width:8px; height:8px; border-radius:50%; background:#94a3af; }
     .status-dot.active { background:var(--teal); box-shadow:0 0 0 5px rgba(25,114,120,.12); animation:pulse 1.7s infinite; }
     .status-dot.warning { background:var(--gold); }
@@ -497,7 +506,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </header>
   <section class="stats-grid">
-    <article class="metric-card"><div class="metric-label">Human pathogens</div><div class="metric-value">{{ formatNumber(payload.summary.human_pathogens_latest) }}</div><div class="metric-note">taxa detected and requiring review</div></article>
+    <article class="metric-card"><div class="metric-label">Human pathogens</div><div class="metric-value">{{ formatNumber(payload.summary.human_pathogens_latest) }}</div><div class="metric-note">species detected and requiring review</div></article>
     <article class="metric-card"><div class="metric-label">Taxa in latest result</div><div class="metric-value">{{ formatNumber(totalLatestTaxa.length) }}</div><div class="metric-note">across reported taxonomic levels</div></article>
     <article class="metric-card"><div class="metric-label">Input reads</div><div class="metric-value">{{ formatNumber(payload.summary.raw_reads) }}</div><div class="metric-note">from {{ payload.summary.qc_timepoints }} batches</div></article>
     <article class="metric-card"><div class="metric-label">Post-QC reads</div><div class="metric-value">{{ formatNullable(payload.summary.filtered_reads) }}</div><div class="metric-note">available to cumulative profiling</div></article>
@@ -514,7 +523,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </section>
   <section class="panel">
-    <div class="panel-heading"><div><h2 class="panel-title">Latest profiling results</h2><p class="panel-subtitle">Expand a taxon to inspect normalized metric history. Change pills compare the latest observation with the immediately preceding observation.</p></div><div class="result-actions"><a v-if="payload.latest_outputs.pathogen_full_html" class="stream-button primary" :href="payload.latest_outputs.pathogen_full_html"><i class="pi pi-chart-bar"></i><span>Taxa report</span></a><a v-if="payload.latest_outputs.coverage_html" class="stream-button" :href="payload.latest_outputs.coverage_html"><i class="pi pi-chart-line"></i><span>Coverage</span></a><span class="count-pill">{{ formatNumber(filteredTaxa.length) }} of {{ formatNumber(totalLatestTaxa.length) }} taxa</span></div></div>
+    <div class="panel-heading"><div><h2 class="panel-title">Latest profiling results</h2><p class="panel-subtitle">Expand a taxon to inspect normalized metric history. Change pills compare the latest observation with the immediately preceding observation.</p></div><div class="result-actions"><a v-if="payload.latest_outputs.pathogen_full_html" class="stream-button" :href="payload.latest_outputs.pathogen_full_html"><i class="pi pi-chart-bar"></i><span>Taxa report</span></a><a v-if="payload.latest_outputs.coverage_html" class="stream-button" :href="payload.latest_outputs.coverage_html"><i class="pi pi-chart-line"></i><span>Coverage</span></a><span class="count-pill active">{{ formatNumber(filteredTaxa.length) }} of {{ formatNumber(totalLatestTaxa.length) }} taxa</span></div></div>
     <p-data-table v-model:expanded-rows="expandedRows" v-model:selection="selectedRows" :value="filteredTaxa" data-key="key" state-storage="local" state-key="spades-stream-results-v2" selection-mode="multiple" :meta-key-selection="false" paginator :rows="25" :rows-per-page-options="[10,25,50,100]" striped-rows removable-sort @row-expand="onRowExpand" @row-collapse="onRowCollapse">
       <template #empty><div class="empty">No taxa match the active filters.</div></template>
       <p-column expander style="width:3.5rem"></p-column>

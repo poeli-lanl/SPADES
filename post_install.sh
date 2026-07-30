@@ -24,7 +24,7 @@ KRONA_DIR=$(dirname "$KRONA_TAXONOMY")
 [[ -d "$SPADES_TAXONOMY" ]] || fail "SPADES taxonomy directory not found: $SPADES_TAXONOMY"
 [[ -f "$SPADES_TAXONOMY/taxonomy.tab.gz" ]] || fail "Missing taxonomy file: $SPADES_TAXONOMY/taxonomy.tab.gz"
 
-gzip -d $SPADES_TAXONOMY/taxonomy.tab.gz
+gzip -dc $SPADES_TAXONOMY/taxonomy.tab.gz > $SPADES_TAXONOMY/taxonomy.tab || fail "Failed to decompress taxonomy file"
 
 if [[ -L "$KRONA_TAXONOMY" || -e "$KRONA_TAXONOMY" ]]; then
   rm -rf "$KRONA_TAXONOMY"

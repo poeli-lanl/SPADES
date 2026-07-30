@@ -5,12 +5,13 @@ ARG MAMBA_USER=mambauser
 ENV MAMBA_ROOT_PREFIX=/opt/conda
 WORKDIR /tmp/build
 
+ENV PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org"
 COPY --chown=${MAMBA_USER}:${MAMBA_USER} environment.yml ./environment.yml
-COPY --chown=${MAMBA_USER}:${MAMBA_USER} GOTTCHA2-main/ ./GOTTCHA2-main/
-RUN micromamba env create -y -n spades -f environment.yml \
+RUN micromamba config set ssl_verify false \
+    && micromamba env create -y -n spades -f environment.yml \
     && micromamba clean -a -y
 
-FROM debian:bookworm-slim
+FROM debian:13-slim
 
 ENV CONDA_PREFIX=/opt/conda/envs/spades
 ENV LANG=C.UTF-8
@@ -23,7 +24,7 @@ WORKDIR /app
 COPY data/ ./data/
 COPY scripts/ ./scripts/
 COPY run_SPADES.sh post_install.sh ./
-COPY README.md Docker.md ./
+COPY README.md ./
 
 RUN ./post_install.sh
 

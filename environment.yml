@@ -10,6 +10,7 @@ dependencies:
   - krona
   - samtools
   - bcftools
+  - gsl
   - fastp
   - fastplong
   - gottcha2

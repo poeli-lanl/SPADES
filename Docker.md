@@ -9,7 +9,7 @@ files into a slim Debian image.
 From the repo root:
 
 ```bash
-docker build -t spades-g2:local .
+docker buildx build -t spades-g2:local .
 ```
 
 Optional multi-platform publish examples:
@@ -48,9 +48,7 @@ docker run --rm -it \
     -o /work/outdir \
     -p sample \
     -d /db/gottcha_db.species.fna \
-    -t 8 \
-    --spades-data /app/data \
-    --js-external
+    -t 8
 ```
 
 Notes:

@@ -8,11 +8,7 @@ usage() {
   cat <<'EOF'
 Usage:
   run_SPADES.sh \
-    -i <reads> \
-    OR
-    -1 <read1> -2 <read2> \
-    OR
-    -b <existing_bam> \
+    [-i <reads> | -1 <read1> -2 <read2> | -b <existing_bam>] \
     -o <outdir> \
     -p <prefix> \
     -d <db_path> \

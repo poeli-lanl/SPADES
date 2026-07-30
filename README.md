@@ -236,7 +236,7 @@ confirmation limitations visible for clinical users.
 - `--min-depth` sets the minimum depth threshold for variant calling in the coverage browser (default: 10).
 - Ensure the database path points to the base file (e.g. `gottcha_db.species.fna`) and that the corresponding `.syldb`, `.zip`, `.stats`, and `.tax.tsv` exist.
 
-## Notice of Copyright Assertion (O4958)
+## Notice of Copyright Assertion (O5123)
 
 This program is Open-Source under the BSD-3 License.
  

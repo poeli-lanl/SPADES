@@ -5,10 +5,9 @@ ARG MAMBA_USER=mambauser
 ENV MAMBA_ROOT_PREFIX=/opt/conda
 WORKDIR /tmp/build
 
-ENV PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org"
 COPY --chown=${MAMBA_USER}:${MAMBA_USER} environment.yml ./environment.yml
-RUN micromamba config set ssl_verify false \
-    && micromamba env create -y -n spades -f environment.yml \
+# ENV PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org"
+RUN micromamba env create -y -n spades -f environment.yml \
     && micromamba clean -a -y
 
 FROM debian:13-slim

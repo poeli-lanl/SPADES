@@ -368,6 +368,48 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertIn("Processing batch 000001", payload["current"]["label"])
         self.assertEqual(payload["current"]["detail"], "chunk.fastq.gz")
 
+    def test_human_pathogen_summary_counts_species_only(self):
+        state = {
+            "configuration": {"prefix": "stream", "database": "db"},
+            "monitor_status": "stopped",
+            "pending": None,
+            "timepoints": [
+                {
+                    "timepoint": 1,
+                    "status": "profiled",
+                    "profile_rows": [
+                        {
+                            "LEVEL": "species",
+                            "NAME": "Human pathogen species",
+                            "TAXID": "101",
+                            "READ_COUNT": "20",
+                            "HUMAN_PATHOGEN": "Yes",
+                        },
+                        {
+                            "LEVEL": "genus",
+                            "NAME": "Human pathogen genus",
+                            "TAXID": "202",
+                            "READ_COUNT": "30",
+                            "HUMAN_PATHOGEN": "Yes",
+                        },
+                        {
+                            "LEVEL": "species",
+                            "NAME": "Non-pathogen species",
+                            "TAXID": "303",
+                            "READ_COUNT": "40",
+                            "HUMAN_PATHOGEN": "No",
+                        },
+                    ],
+                }
+            ],
+        }
+
+        payload = build_payload(state)
+
+        self.assertEqual(payload["summary"]["taxa_latest"], 3)
+        self.assertEqual(payload["summary"]["human_pathogens"], 1)
+        self.assertEqual(payload["summary"]["human_pathogens_latest"], 1)
+
     def test_latest_findings_are_distinguished_from_historical_findings(self):
         first_result = self.root / "first.pathogen.full.tsv"
         second_result = self.root / "second.pathogen.full.tsv"

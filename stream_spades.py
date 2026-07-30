@@ -224,6 +224,10 @@ class StreamSpades:
         else:
             self._write_live_report()
         logging.info(
+            "run_SPADES version: %s",
+            self.run_spades_version
+        )
+        logging.info(
             "Open the live report in your browser: %s",
             self._relative_path(self.report_path),
         )
@@ -955,7 +959,7 @@ class StreamSpades:
         candidate_fasta: Optional[Path] = None
         cumulative_fasta: Optional[Path] = None
         db_level = self.state.get("db_level", "")
-        status = "profiled"
+        status = "processed"
 
         if valid_chunk_bam or previous_bam is not None:
             if valid_chunk_bam and chunk_bam is not None:
@@ -1195,9 +1199,8 @@ def build_parser() -> argparse.ArgumentParser:
     script_dir = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(
         description=(
-            "Monitor an Oxford Nanopore read directory, run SPADES for every stable "
-            "FASTA/FASTQ file, merge each BAM into cumulative alignments, and re-run "
-            "GOTTCHA2 profiling at every timepoint."
+            "Real-time Oxford Nanopore analysis tool that monitors a read directory,"
+            "processes each stable FASTA/FASTQ file with SPADES-GOTTCHA2, and updates profiling when new data arrives."
         ),
         epilog="""
 How it works:
@@ -1326,6 +1329,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.info("Writing results, state, and logs to: %s", args.outdir)
     if args.once:
         logging.info("One-shot mode: process currently stable files, then exit")
+    elif args.max_files:
+        logging.info(
+            "Continuous mode: process up to %d files, then exit", args.max_files
+        )
     else:
         logging.info("Continuous mode: press Ctrl-C to stop; rerun to resume")
 

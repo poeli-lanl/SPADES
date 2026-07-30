@@ -15,6 +15,7 @@ dependencies:
   - krona
   - samtools
   - bcftools
+  - gsl
   - pysam
   - fastp
   - fastplong

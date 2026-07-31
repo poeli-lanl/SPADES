@@ -1,4 +1,4 @@
-[![logo](docs/SPADES_logo_n.png)](docs/SPADES_logo_n.png)
+[![logo](docs/SPADES_logo_icon.png)](docs/SPADES_logo_icon.png)
 
 # SPADES
 

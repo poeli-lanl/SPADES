@@ -1,3 +1,5 @@
+[![logo](docs/SPADES_logo_icon.png)](docs/SPADES_logo_icon.png)
+
 # SPADES
 
 The SPADES (Sequence-based Pathogen-Agnostic Diagnostics/Detection Solution) program is a full suite of  bioinformatics tools for detecting pathogens in complex metagenomic DNA sequencing datasets. The output of SPADES includes the detected organisms, highlighting the possible pathogens identified, with coverage-based validation. Under the hood, SPADES utilizes the GOTTCHA2 taxonomy profiling bioinformatics algorithms and databases, extracts pathogen hits, computes detailed signature/genome coverage summaries, and automatically generates an interactive report/plot for rapid interpretation and triage.

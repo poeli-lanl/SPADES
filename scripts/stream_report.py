@@ -79,9 +79,9 @@ def _stable_taxon_key(level: Any, taxid: Any, name: Any) -> str:
 
 
 def _deduplicated_history(points: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Keep one normalized observation per timepoint, preferring the latest record."""
-    by_timepoint = {int(point["timepoint"]): point for point in points}
-    return [by_timepoint[key] for key in sorted(by_timepoint)]
+    """Keep one normalized observation per batch, preferring the latest record."""
+    by_batch = {int(point["batch"]): point for point in points}
+    return [by_batch[key] for key in sorted(by_batch)]
 
 
 def _latest_change(history: Sequence[Dict[str, Any]], field: str) -> Optional[float]:
@@ -167,24 +167,24 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
     to which paths are exposed in the report.
     """
     base_dir = (base_dir or Path.cwd()).resolve()
-    records_by_timepoint = {
-        int(record["timepoint"]): record for record in state.get("timepoints", [])
+    records_by_batch = {
+        int(record["batch"]): record for record in state.get("batches", [])
     }
-    records = [records_by_timepoint[key] for key in sorted(records_by_timepoint)]
-    timepoints: List[Dict[str, Any]] = []
+    records = [records_by_batch[key] for key in sorted(records_by_batch)]
+    batches: List[Dict[str, Any]] = []
     pathogens: Dict[str, Dict[str, Any]] = {}
 
     for record in records:
-        timepoint = int(record["timepoint"])
+        batch = int(record["batch"])
         result_value = record.get("pathogen_full_tsv", "")
         result_path = _resolve_path(result_value, base_dir)
         completed_at = _record_timestamp(record, "completed_at")
         raw_reads = record.get("raw_reads")
         filtered_reads = record.get("filtered_reads")
         input_path = _relative_path(record.get("input_file", ""), base_dir)
-        timepoints.append(
+        batches.append(
             {
-                "timepoint": timepoint,
+                "batch": batch,
                 "input_file": Path(input_path).name,
                 "input_path": input_path,
                 "raw_reads": _integer(raw_reads),
@@ -221,7 +221,7 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
             )
             pathogen["history"].append(
                 {
-                    "timepoint": timepoint,
+                    "batch": batch,
                     "completed_at": completed_at,
                     "read_count": _integer(row.get("READ_COUNT")),
                     "best_sig_cov": _normalized_fraction(
@@ -232,7 +232,7 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
                 }
             )
 
-    latest_timepoint = int(records[-1]["timepoint"]) if records else 0
+    latest_batch = int(records[-1]["batch"]) if records else 0
     pathogen_list: List[Dict[str, Any]] = []
     for pathogen in pathogens.values():
         history = _deduplicated_history(pathogen["history"])
@@ -243,9 +243,9 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
             history[-1]["sni_score"] is not None
             and history[-1]["sni_score"] >= _sni_threshold(pathogen["level"])
         )
-        pathogen["first_seen"] = history[0]["timepoint"]
-        pathogen["last_seen"] = history[-1]["timepoint"]
-        pathogen["present_latest"] = history[-1]["timepoint"] == latest_timepoint
+        pathogen["first_seen"] = history[0]["batch"]
+        pathogen["last_seen"] = history[-1]["batch"]
+        pathogen["present_latest"] = history[-1]["batch"] == latest_batch
         pathogen["change"] = {
             "read_count": _latest_change(history, "read_count"),
             "best_sig_cov": _latest_change(history, "best_sig_cov"),
@@ -272,16 +272,16 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
         if item["level"] == "species" and item["human_pathogen"]
     ]
 
-    raw_values = [item["raw_reads"] for item in timepoints if item["raw_reads"] is not None]
+    raw_values = [item["raw_reads"] for item in batches if item["raw_reads"] is not None]
     filtered_values = [
-        item["filtered_reads"] for item in timepoints if item["filtered_reads"] is not None
+        item["filtered_reads"] for item in batches if item["filtered_reads"] is not None
     ]
     pending = state.get("pending") or {}
     monitor_status = str(state.get("monitor_status", "stopped"))
     if pending:
         current_file = Path(str(pending.get("signature", {}).get("path", ""))).name
         current = {
-            "label": f"Processing batch {int(pending.get('timepoint', 0)):06d}",
+            "label": f"Processing batch {int(pending.get('batch', 0)):06d}",
             "detail": current_file or "Pipeline work in progress",
             "tone": "active" if monitor_status == "running" else "warning",
         }
@@ -294,7 +294,7 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
     else:
         current = {
             "label": "Monitor stopped — results are current",
-            "detail": f"Last completed batch: {latest_timepoint:06d}" if records else "No completed batches",
+            "detail": f"Last completed batch: {latest_batch:06d}" if records else "No completed batches",
             "tone": "ready",
         }
 
@@ -315,11 +315,11 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
     }
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "revision": f"{len(records)}:{latest_timepoint}:{monitor_status}:{pending.get('stage', '')}",
+        "revision": f"{len(records)}:{latest_batch}:{monitor_status}:{pending.get('stage', '')}",
         "configuration": configuration,
         "run_spades_version": str(state.get("run_spades_version", "")),
         "monitor_status": monitor_status,
-        "processing_batch": int(pending.get("timepoint", 0)) if pending else None,
+        "processing_batch": int(pending.get("batch", 0)) if pending else None,
         "current": current,
         "filter_defaults": {
             "levels": list(DEFAULT_LEVELS),
@@ -328,22 +328,22 @@ def build_payload(state: Dict[str, Any], base_dir: Optional[Path] = None) -> Dic
             "human_pathogens_only": True,
         },
         "summary": {
-            "timepoints": len(timepoints),
+            "batches": len(batches),
             "raw_reads": sum(raw_values),
             "filtered_reads": (
                 sum(filtered_values)
-                if len(filtered_values) == len(timepoints)
+                if len(filtered_values) == len(batches)
                 else None
             ),
-            "qc_timepoints": len(raw_values),
+            "qc_batches": len(raw_values),
             "taxa": len(pathogen_list),
             "taxa_latest": len(latest_taxa),
             "human_pathogens": len(human_pathogen_species),
             "human_pathogens_latest": len(latest_human_pathogen_species),
         },
-        "latest_timepoint": latest_timepoint,
+        "latest_batch": latest_batch,
         "latest_outputs": latest_outputs,
-        "timepoints": timepoints,
+        "batches": batches,
         "pathogens": pathogen_list,
     }
 
@@ -495,7 +495,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <div class="eyebrow">SPADES-GOTTCHA2</div><h1>REPORT_HEADING</h1>
       <div class="header-meta">
         <span class="meta-pill" :title="payload.current.detail"><span class="status-dot" :class="payload.current.tone"></span>Processing batch: <strong>{{ payload.processing_batch ? `B${payload.processing_batch}` : 'stopped' }}</strong></span>
-        <span class="meta-pill"><i class="pi pi-check-circle"></i>Batches completed: <strong>{{ formatNumber(payload.summary.timepoints) }}</strong></span>
+        <span class="meta-pill"><i class="pi pi-check-circle"></i>Batches completed: <strong>{{ formatNumber(payload.summary.batches) }}</strong></span>
         <span class="meta-pill"><i class="pi pi-clock"></i>{{ formatTime(payload.generated_at) }}</span>
         <span class="meta-pill"><i class="pi pi-database"></i>{{ payload.configuration.database_display || '—' }}</span>
       </div>
@@ -508,7 +508,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <section class="stats-grid">
     <article class="metric-card"><div class="metric-label">Human pathogens</div><div class="metric-value">{{ formatNumber(payload.summary.human_pathogens_latest) }}</div><div class="metric-note">species detected and requiring review</div></article>
     <article class="metric-card"><div class="metric-label">Taxa in latest result</div><div class="metric-value">{{ formatNumber(totalLatestTaxa.length) }}</div><div class="metric-note">across reported taxonomic levels</div></article>
-    <article class="metric-card"><div class="metric-label">Input reads</div><div class="metric-value">{{ formatNumber(payload.summary.raw_reads) }}</div><div class="metric-note">from {{ payload.summary.qc_timepoints }} batches</div></article>
+    <article class="metric-card"><div class="metric-label">Input reads</div><div class="metric-value">{{ formatNumber(payload.summary.raw_reads) }}</div><div class="metric-note">from {{ payload.summary.qc_batches }} batches</div></article>
     <article class="metric-card"><div class="metric-label">Post-QC reads</div><div class="metric-value">{{ formatNullable(payload.summary.filtered_reads) }}</div><div class="metric-note">available to cumulative profiling</div></article>
   </section>
   <section class="panel filters-panel" aria-label="Result filters">
@@ -535,7 +535,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <template #expansion="slot"><div class="history"><div class="history-head"><div><strong>{{ slot.data.name }} metric history</strong><br><span>Missing values remain gaps; charts update in place with each cumulative result.</span></div><span>{{ slot.data.history.length }} observations</span></div><div class="chart-grid"><history-chart title="READ_COUNT" field="read_count" color="#197278" :history="slot.data.history" format="integer"></history-chart><history-chart title="BEST_SIG_COV" field="best_sig_cov" color="#3f7cac" :history="slot.data.history" format="percent"></history-chart><history-chart title="SNI_SCORE" field="sni_score" color="#d95d39" :history="slot.data.history" format="decimal"></history-chart></div></div></template>
     </p-data-table>
   </section>
-  <section class="panel batch-panel"><div class="panel-heading"><div><h2 class="panel-title">Analysis batches</h2><p class="panel-subtitle">Paths are relative to this report wherever possible. Times use the local system timezone.</p></div></div><div class="batch-table-wrap"><table class="batch-table"><thead><tr><th>Batch</th><th>Input</th><th>Input reads</th><th>Post-QC</th><th>Status</th><th>Completed</th><th>Pipeline log</th></tr></thead><tbody><tr v-for="item in reversedTimepoints" :key="item.timepoint"><td><strong>B{{ String(item.timepoint).padStart(6,'0') }}</strong></td><td class="path-cell" :title="item.input_path">{{ item.input_file }}</td><td>{{ formatNullable(item.raw_reads) }}</td><td>{{ formatNullable(item.filtered_reads) }}</td><td><span class="status-tag" :class="item.status">{{ item.status.replace('_',' ') }}</span></td><td>{{ formatTime(item.completed_at) }}</td><td class="path-cell" :title="item.run_log">{{ item.run_log || '—' }}</td></tr><tr v-if="!payload.timepoints.length"><td colspan="7" class="empty">No completed batches yet.</td></tr></tbody></table></div></section>
+  <section class="panel batch-panel"><div class="panel-heading"><div><h2 class="panel-title">Analysis batches</h2><p class="panel-subtitle">Paths are relative to this report wherever possible. Times use the local system timezone.</p></div></div><div class="batch-table-wrap"><table class="batch-table"><thead><tr><th>Batch</th><th>Input</th><th>Input reads</th><th>Post-QC</th><th>Status</th><th>Completed</th><th>Pipeline log</th></tr></thead><tbody><tr v-for="item in reversedBatches" :key="item.batch"><td><strong>B{{ String(item.batch).padStart(6,'0') }}</strong></td><td class="path-cell" :title="item.input_path">{{ item.input_file }}</td><td>{{ formatNullable(item.raw_reads) }}</td><td>{{ formatNullable(item.filtered_reads) }}</td><td><span class="status-tag" :class="item.status">{{ item.status.replace('_',' ') }}</span></td><td>{{ formatTime(item.completed_at) }}</td><td class="path-cell" :title="item.run_log">{{ item.run_log || '—' }}</td></tr><tr v-if="!payload.batches.length"><td colspan="7" class="empty">No completed batches yet.</td></tr></tbody></table></div></section>
   <footer><span>Input: {{ payload.configuration.input_dir || '—' }}</span><span>run_SPADES v{{ payload.run_spades_version || 'unavailable' }}</span><span>SPADES-GOTTCHA2 REALTIME REPORT</span></footer>
 </main>
 <script id="report-data" type="application/json">__REPORT_DATA__</script>
@@ -546,8 +546,8 @@ window.browserResourcesReady.then(function(){
   const framePollToken=new URLSearchParams(location.hash.slice(1)).get('_spades_stream_poll');
   if(window.parent!==window&&framePollToken){window.parent.postMessage({type:'spades-stream-payload',token:framePollToken,payload:initialPayload},'*');return}
   const formatMetric=(value,format)=>{if(value===null||value===undefined||!Number.isFinite(Number(value)))return '—';const number=Number(value);if(format==='integer')return Math.round(number).toLocaleString();if(format==='percent')return `${(number*100).toFixed(2)}%`;return number.toFixed(5)};
-  const ChangePill={props:{tone:String,metric:String,value:Number,format:String},setup(props){const text=computed(()=>formatMetric(props.value,props.format));const description=computed(()=>`${props.metric} increased by ${text.value} from the immediately preceding recorded timepoint`);return{text,description}},template:`<span class="change-pill" :class="tone" :title="description" :aria-label="description"><i class="pi pi-arrow-up" aria-hidden="true"></i>{{text}}</span>`};
-  const HistoryChart={props:{title:String,field:String,color:String,history:Array,format:String},setup(props){const hover=ref(null),width=430,height=180,margin={top:14,right:15,bottom:31,left:54};const values=computed(()=>props.history.map(point=>{const value=point[props.field];return value===null||value===undefined||!Number.isFinite(Number(value))?null:Number(value)}));const finiteValues=computed(()=>values.value.filter(value=>value!==null));const domain=computed(()=>{const vals=finiteValues.value;if(!vals.length)return [0,1];let min=props.field==='sni_score'?Math.min(...vals):0;let max=Math.max(...vals);if(props.field==='sni_score')min=Math.max(0,min-Math.max((max-min)*.15,.0005));if(max<=min)max=min+(props.format==='integer'?1:.01);return [min,max]});const x=index=>props.history.length<=1?margin.left+(width-margin.left-margin.right)/2:margin.left+index*(width-margin.left-margin.right)/(props.history.length-1);const y=value=>margin.top+(height-margin.top-margin.bottom)*(1-(value-domain.value[0])/(domain.value[1]-domain.value[0]));const segments=computed(()=>{const result=[];let current=[];values.value.forEach((value,index)=>{if(value===null){if(current.length)result.push(current);current=[];return}current.push(`${x(index)},${y(value)}`)});if(current.length)result.push(current);return result});const ticks=computed(()=>Array.from({length:5},(_,index)=>{const value=domain.value[0]+(domain.value[1]-domain.value[0])*index/4;return{value,y:y(value)}}));const fmt=value=>formatMetric(value,props.format);const latestText=computed(()=>fmt(values.value[values.value.length-1]));const hoverText=computed(()=>hover.value===null?'Hover over a point for details':`Batch ${props.history[hover.value].timepoint} · ${fmt(values.value[hover.value])}`);return{width,height,margin,values,segments,ticks,x,y,fmt,hover,hoverText,latestText}},template:`<article class="chart-card"><div class="chart-head"><strong>{{title}}</strong><span>{{latestText}}</span></div><svg class="chart-svg" :viewBox="'0 0 '+width+' '+height" role="img" :aria-label="title+' history'"><g v-for="tick in ticks" :key="tick.y"><line class="grid-line" :x1="margin.left" :x2="width-margin.right" :y1="tick.y" :y2="tick.y"></line><text class="chart-axis" :x="margin.left-7" :y="tick.y+3" text-anchor="end">{{fmt(tick.value)}}</text></g><polyline v-for="(segment,index) in segments" :key="index" class="chart-line" :stroke="color" :points="segment.join(' ')"></polyline><g v-for="(point,index) in history" :key="point.timepoint"><circle v-if="values[index]!==null" class="chart-point" :stroke="color" :cx="x(index)" :cy="y(values[index])" r="4.5" @mouseenter="hover=index" @mouseleave="hover=null"><title>Batch {{point.timepoint}}: {{fmt(values[index])}}</title></circle><text v-if="history.length<=10||index===0||index===history.length-1" class="chart-axis" :x="x(index)" :y="height-10" text-anchor="middle">B{{point.timepoint}}</text></g></svg><div class="chart-tooltip">{{hoverText}}</div></article>`};
+  const ChangePill={props:{tone:String,metric:String,value:Number,format:String},setup(props){const text=computed(()=>formatMetric(props.value,props.format));const description=computed(()=>`${props.metric} increased by ${text.value} from the immediately preceding recorded batch`);return{text,description}},template:`<span class="change-pill" :class="tone" :title="description" :aria-label="description"><i class="pi pi-arrow-up" aria-hidden="true"></i>{{text}}</span>`};
+  const HistoryChart={props:{title:String,field:String,color:String,history:Array,format:String},setup(props){const hover=ref(null),width=430,height=180,margin={top:14,right:15,bottom:31,left:54};const values=computed(()=>props.history.map(point=>{const value=point[props.field];return value===null||value===undefined||!Number.isFinite(Number(value))?null:Number(value)}));const finiteValues=computed(()=>values.value.filter(value=>value!==null));const domain=computed(()=>{const vals=finiteValues.value;if(!vals.length)return [0,1];let min=props.field==='sni_score'?Math.min(...vals):0;let max=Math.max(...vals);if(props.field==='sni_score')min=Math.max(0,min-Math.max((max-min)*.15,.0005));if(max<=min)max=min+(props.format==='integer'?1:.01);return [min,max]});const x=index=>props.history.length<=1?margin.left+(width-margin.left-margin.right)/2:margin.left+index*(width-margin.left-margin.right)/(props.history.length-1);const y=value=>margin.top+(height-margin.top-margin.bottom)*(1-(value-domain.value[0])/(domain.value[1]-domain.value[0]));const segments=computed(()=>{const result=[];let current=[];values.value.forEach((value,index)=>{if(value===null){if(current.length)result.push(current);current=[];return}current.push(`${x(index)},${y(value)}`)});if(current.length)result.push(current);return result});const ticks=computed(()=>Array.from({length:5},(_,index)=>{const value=domain.value[0]+(domain.value[1]-domain.value[0])*index/4;return{value,y:y(value)}}));const fmt=value=>formatMetric(value,props.format);const latestText=computed(()=>fmt(values.value[values.value.length-1]));const hoverText=computed(()=>hover.value===null?'Hover over a point for details':`Batch ${props.history[hover.value].batch} · ${fmt(values.value[hover.value])}`);return{width,height,margin,values,segments,ticks,x,y,fmt,hover,hoverText,latestText}},template:`<article class="chart-card"><div class="chart-head"><strong>{{title}}</strong><span>{{latestText}}</span></div><svg class="chart-svg" :viewBox="'0 0 '+width+' '+height" role="img" :aria-label="title+' history'"><g v-for="tick in ticks" :key="tick.y"><line class="grid-line" :x1="margin.left" :x2="width-margin.right" :y1="tick.y" :y2="tick.y"></line><text class="chart-axis" :x="margin.left-7" :y="tick.y+3" text-anchor="end">{{fmt(tick.value)}}</text></g><polyline v-for="(segment,index) in segments" :key="index" class="chart-line" :stroke="color" :points="segment.join(' ')"></polyline><g v-for="(point,index) in history" :key="point.batch"><circle v-if="values[index]!==null" class="chart-point" :stroke="color" :cx="x(index)" :cy="y(values[index])" r="4.5" @mouseenter="hover=index" @mouseleave="hover=null"><title>Batch {{point.batch}}: {{fmt(values[index])}}</title></circle><text v-if="history.length<=10||index===0||index===history.length-1" class="chart-axis" :x="x(index)" :y="height-10" text-anchor="middle">B{{point.batch}}</text></g></svg><div class="chart-tooltip">{{hoverText}}</div></article>`};
   const app=createApp({components:{ChangePill,HistoryChart},setup(){
     const payload=ref(initialPayload),filters=ref({global:{value:null}}),selectedRows=ref([]),polling=ref(false);
     const expansionStorageKey='spades-stream-expansion-v3';let expansionState={expanded:{},choices:{}};try{const saved=JSON.parse(localStorage.getItem(expansionStorageKey)||'{}');if(saved&&typeof saved==='object')expansionState={expanded:saved.expanded&&typeof saved.expanded==='object'?saved.expanded:{},choices:saved.choices&&typeof saved.choices==='object'?saved.choices:{}}}catch(error){}
@@ -556,7 +556,7 @@ window.browserResourcesReady.then(function(){
     const selectedLevels=ref(Array.isArray(stored.levels)?stored.levels:[...defaults.levels]);const minReadCount=ref(Number.isFinite(Number(stored.min_read_count))?Number(stored.min_read_count):defaults.min_read_count);const passSni=ref(typeof stored.pass_sni==='boolean'?stored.pass_sni:defaults.pass_sni);const humanPathogensOnly=ref(typeof stored.human_pathogens_only==='boolean'?stored.human_pathogens_only:defaults.human_pathogens_only);if(typeof stored.search==='string')filters.value.global.value=stored.search;
     const rankOrder=['superkingdom','kingdom','phylum','class','order','family','genus','species','strain'];const totalLatestTaxa=computed(()=>payload.value.pathogens.filter(item=>item.present_latest));const levelOptions=computed(()=>[...new Set([...(payload.value.filter_defaults.levels||[]),...(selectedLevels.value||[]),...payload.value.pathogens.map(item=>item.level)])].sort((a,b)=>{const ai=rankOrder.indexOf(a),bi=rankOrder.indexOf(b);return(ai<0?99:ai)-(bi<0?99:bi)||a.localeCompare(b)}).map(value=>({value,label:formatLevel(value)})));
     const filteredTaxa=computed(()=>{const selected=new Set(selectedLevels.value||[]),minimum=Number.isFinite(Number(minReadCount.value))?Number(minReadCount.value):0,query=String(filters.value.global.value||'').trim().toLowerCase();return totalLatestTaxa.value.filter(item=>selected.has(item.level)&&(item.latest.read_count!==null&&item.latest.read_count>=minimum)&&(!passSni.value||item.passes_sni)&&(!humanPathogensOnly.value||item.human_pathogen)&&(!query||`${item.name} ${item.taxid} ${item.level}`.toLowerCase().includes(query)))});
-    const activeFilterCount=computed(()=>{let count=0;const allLevels=new Set(levelOptions.value.map(item=>item.value));if(selectedLevels.value.length!==allLevels.size||selectedLevels.value.some(level=>!allLevels.has(level)))count+=1;if(Number(minReadCount.value||0)>0)count+=1;if(passSni.value)count+=1;if(humanPathogensOnly.value)count+=1;if(String(filters.value.global.value||'').trim())count+=1;return count});const reversedTimepoints=computed(()=>[...payload.value.timepoints].reverse());
+    const activeFilterCount=computed(()=>{let count=0;const allLevels=new Set(levelOptions.value.map(item=>item.value));if(selectedLevels.value.length!==allLevels.size||selectedLevels.value.some(level=>!allLevels.has(level)))count+=1;if(Number(minReadCount.value||0)>0)count+=1;if(passSni.value)count+=1;if(humanPathogensOnly.value)count+=1;if(String(filters.value.global.value||'').trim())count+=1;return count});const reversedBatches=computed(()=>[...payload.value.batches].reverse());
     const captureScroll=()=>({windowX:window.scrollX,windowY:window.scrollY,items:[...document.querySelectorAll('.p-datatable-table-container,.batch-table-wrap')].map(node=>({node,left:node.scrollLeft,top:node.scrollTop}))});const restoreScroll=snapshot=>nextTick(()=>{snapshot.items.forEach(item=>{item.node.scrollLeft=item.left;item.node.scrollTop=item.top});window.scrollTo(snapshot.windowX,snapshot.windowY)});
     function persistExpansion(){localStorage.setItem(expansionStorageKey,JSON.stringify(expansionState))}
     function restoreCanonicalExpansion(){expandedRows.value={...expansionState.expanded}}
@@ -570,7 +570,7 @@ window.browserResourcesReady.then(function(){
     function parseReport(text){const parsed=new DOMParser().parseFromString(text,'text/html'),node=parsed.getElementById('report-data');if(!node)throw new Error('Updated report data was not found');return JSON.parse(node.textContent)}
     async function iframePayload(sourceUrl){return new Promise((resolve,reject)=>{const frame=document.createElement('iframe'),token=`${Date.now()}-${Math.random().toString(36).slice(2)}`,url=new URL(sourceUrl);frame.hidden=true;url.hash=`_spades_stream_poll=${encodeURIComponent(token)}`;const cleanup=()=>{clearTimeout(timer);window.removeEventListener('message',onMessage);frame.remove()};const finish=(callback,value)=>{cleanup();callback(value)};const onMessage=event=>{const message=event.data;if(event.source!==frame.contentWindow||!message||message.type!=='spades-stream-payload'||message.token!==token)return;if(!message.payload||typeof message.payload!=='object'){finish(reject,new Error('Local report returned invalid data'));return}finish(resolve,message.payload)};const timer=setTimeout(()=>finish(reject,new Error('Local report update timed out')),12000);window.addEventListener('message',onMessage);frame.src=url.href;document.body.appendChild(frame)})}
     async function pollNow(){if(polling.value)return;polling.value=true;liveMessage.value='checking…';try{const url=new URL(location.href);url.searchParams.set('_stream_poll',Date.now());let next;try{const response=await fetch(url.href,{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);next=parseReport(await response.text())}catch(error){if(location.protocol!=='file:')throw error;next=await iframePayload(url.href)}await applyPayload(next);if(liveMessage.value!=='updated')liveMessage.value='current'}catch(error){console.warn('Live update failed:',error);liveMessage.value='retrying'}finally{polling.value=false}}
-    setInterval(()=>{if(liveEnabled.value)pollNow()},5000);return{payload,filters,selectedRows,expandedRows,polling,liveEnabled,liveMessage,selectedLevels,minReadCount,passSni,humanPathogensOnly,totalLatestTaxa,filteredTaxa,levelOptions,activeFilterCount,reversedTimepoints,formatNumber,formatNullable,formatCoverage,formatSni,formatLevel,formatTime,resetFilters,onRowExpand,onRowCollapse,pollNow}
+    setInterval(()=>{if(liveEnabled.value)pollNow()},5000);return{payload,filters,selectedRows,expandedRows,polling,liveEnabled,liveMessage,selectedLevels,minReadCount,passSni,humanPathogensOnly,totalLatestTaxa,filteredTaxa,levelOptions,activeFilterCount,reversedBatches,formatNumber,formatNullable,formatCoverage,formatSni,formatLevel,formatTime,resetFilters,onRowExpand,onRowCollapse,pollNow}
   }});
   app.use(PrimeVue.Config,{theme:{preset:PrimeUIX.Themes.Aura}});app.component('p-data-table',PrimeVue.DataTable);app.component('p-column',PrimeVue.Column);app.component('p-multi-select',PrimeVue.MultiSelect);app.mount('#app');
 }).catch(function(error){console.error(error);document.getElementById('app').removeAttribute('v-cloak');document.getElementById('app').innerHTML='<div class="empty">Unable to initialize the embedded report interface.</div>'});

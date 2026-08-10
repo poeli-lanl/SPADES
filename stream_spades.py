@@ -36,7 +36,7 @@ READ_SUFFIXES = (
 )
 STATE_VERSION = 1
 MANIFEST_FIELDS = (
-    "timepoint",
+    "batch",
     "observed_at",
     "completed_at",
     "input_file",
@@ -212,13 +212,13 @@ class StreamSpades:
         )
         self.database = database_base(args.db_path).resolve()
         self.state_path = self.output_dir / "stream_state.json"
-        self.manifest_path = self.output_dir / "timepoints.tsv"
+        self.manifest_path = self.output_dir / "batches.tsv"
         self.report_path = self.output_dir / f"{args.prefix}.stream.html"
         self.active_run_log: Optional[Path] = None
         self.observations: Dict[str, Tuple[int, int, float]] = {}
         self.state = self._load_state()
         self.state["run_spades_version"] = self.run_spades_version
-        self._recover_pending_timepoint()
+        self._recover_pending_batch()
         if self._backfill_qc_metrics():
             self._save_state()
         else:
@@ -240,9 +240,9 @@ class StreamSpades:
                 "database": str(self.database),
                 "prefix": self.args.prefix,
             },
-            "next_timepoint": 1,
+            "next_batch": 1,
             "files": {},
-            "timepoints": [],
+            "batches": [],
             "cumulative_bam": "",
             "cumulative_fasta": "",
             "latest_outputs": {},
@@ -273,7 +273,7 @@ class StreamSpades:
     @staticmethod
     def _normalize_legacy_timestamps(state: Dict[str, Any]) -> None:
         """Migrate timestamp field names from early UTC-only stream states."""
-        records = list(state.get("timepoints", []))
+        records = list(state.get("batches", []))
         pending_record = (state.get("pending") or {}).get("record")
         if pending_record:
             records.append(pending_record)
@@ -331,7 +331,7 @@ class StreamSpades:
             writer = csv.DictWriter(handle, fieldnames=MANIFEST_FIELDS, delimiter="\t")
             writer.writeheader()
             for record in sorted(
-                self.state["timepoints"], key=lambda item: int(item["timepoint"])
+                self.state["batches"], key=lambda item: int(item["batch"])
             ):
                 manifest_record = dict(record)
                 for field in (
@@ -426,7 +426,7 @@ class StreamSpades:
         cumulative_filtered = 0
         cumulative_filtered_available = True
         for record in sorted(
-            self.state.get("timepoints", []), key=lambda item: int(item["timepoint"])
+            self.state.get("batches", []), key=lambda item: int(item["batch"])
         ):
             if record.get("raw_reads") not in (None, ""):
                 cumulative_raw += int(record["raw_reads"])
@@ -441,7 +441,7 @@ class StreamSpades:
 
     def _backfill_qc_metrics(self) -> bool:
         changed = False
-        for record in self.state.get("timepoints", []):
+        for record in self.state.get("batches", []):
             has_metrics = "raw_reads" in record and "filtered_reads" in record
             skip_qc = getattr(self.args, "skip_qc", False)
             if has_metrics and (
@@ -452,8 +452,8 @@ class StreamSpades:
                 )
             ):
                 continue
-            sequence = int(record["timepoint"])
-            chunk_dir = self.output_dir / "timepoints" / f"timepoint_{sequence:06d}" / "chunk"
+            sequence = int(record["batch"])
+            chunk_dir = self.output_dir / "batches" / f"batch_{sequence:06d}" / "chunk"
             chunk_prefix = f"{self.args.prefix}.t{sequence:06d}.chunk"
             input_path = Path(str(record.get("input_file", "")))
             if skip_qc and input_path.is_file():
@@ -588,7 +588,7 @@ class StreamSpades:
     def _finalize_pending(self) -> None:
         pending = self.state["pending"]
         if not pending or pending.get("stage") != "ready":
-            raise RuntimeError("Cannot finalize an incomplete pending timepoint")
+            raise RuntimeError("Cannot finalize an incomplete pending batch")
 
         candidate_text = pending.get("candidate_bam", "")
         cumulative_text = pending.get("cumulative_bam", "")
@@ -607,7 +607,7 @@ class StreamSpades:
             expected_size = int(pending["cumulative_size"])
             if not cumulative.is_file() or cumulative.stat().st_size != expected_size:
                 raise RuntimeError(
-                    f"Unable to recover cumulative BAM for timepoint {pending['timepoint']}"
+                    f"Unable to recover cumulative BAM for batch {pending['batch']}"
                 )
             if not cumulative_index.is_file() or not self._bam_is_valid(cumulative):
                 raise RuntimeError(f"Invalid cumulative BAM after promotion: {cumulative}")
@@ -627,8 +627,8 @@ class StreamSpades:
                 or not self._fasta_is_valid(cumulative_fasta)
             ):
                 raise RuntimeError(
-                    "Unable to recover cumulative FASTA for timepoint "
-                    f"{pending['timepoint']}"
+                    "Unable to recover cumulative FASTA for batch "
+                    f"{pending['batch']}"
                 )
 
         has_profile_plan = "profile_outputs" in pending
@@ -639,10 +639,10 @@ class StreamSpades:
         self.state["files"][signature["path"]] = {
             "size": signature["size"],
             "mtime_ns": signature["mtime_ns"],
-            "timepoint": pending["timepoint"],
+            "batch": pending["batch"],
         }
-        self.state["timepoints"].append(record)
-        self.state["next_timepoint"] = int(pending["timepoint"]) + 1
+        self.state["batches"].append(record)
+        self.state["next_batch"] = int(pending["batch"]) + 1
         self.state["cumulative_bam"] = cumulative_text
         self.state["cumulative_fasta"] = cumulative_fasta_text
         latest_outputs = dict(pending.get("latest_outputs", {}))
@@ -652,37 +652,37 @@ class StreamSpades:
             self.state["db_level"] = pending["db_level"]
         self.state["pending"] = None
 
-        if has_profile_plan and not getattr(self.args, "keep_timepoints", False):
-            timepoint_dir = Path(pending["timepoint_dir"])
+        if has_profile_plan and not getattr(self.args, "keep_batches", False):
+            batch_dir = Path(pending["batch_dir"])
             try:
-                if timepoint_dir.exists():
-                    shutil.rmtree(timepoint_dir)
-                if timepoint_dir.parent.exists():
-                    timepoint_dir.parent.rmdir()
+                if batch_dir.exists():
+                    shutil.rmtree(batch_dir)
+                if batch_dir.parent.exists():
+                    batch_dir.parent.rmdir()
             except OSError as error:
                 logging.warning(
-                    "Unable to remove completed timepoint files from %s: %s",
-                    timepoint_dir,
+                    "Unable to remove completed batch files from %s: %s",
+                    batch_dir,
                     error,
                 )
 
         self._save_state()
 
-    def _recover_pending_timepoint(self) -> None:
+    def _recover_pending_batch(self) -> None:
         pending = self.state.get("pending")
         if not pending:
             self._write_manifest()
             self._write_live_report()
             return
         if pending.get("stage") == "ready":
-            logging.warning("Recovering completed timepoint %s", pending["timepoint"])
+            logging.warning("Recovering completed batch %s", pending["batch"])
             self._finalize_pending()
             return
 
-        timepoint_dir = Path(pending["timepoint_dir"])
-        logging.warning("Removing incomplete timepoint directory: %s", timepoint_dir)
-        if timepoint_dir.exists():
-            shutil.rmtree(timepoint_dir)
+        batch_dir = Path(pending["batch_dir"])
+        logging.warning("Removing incomplete batch directory: %s", batch_dir)
+        if batch_dir.exists():
+            shutil.rmtree(batch_dir)
         self.state["pending"] = None
         self._save_state()
 
@@ -868,13 +868,13 @@ class StreamSpades:
 
     def _promote_profile_outputs(self, outputs: Sequence[Dict[str, str]]) -> None:
         """Publish a staged profile, retaining its staged copy only on request."""
-        keep_timepoints = getattr(self.args, "keep_timepoints", False)
+        keep_batches = getattr(self.args, "keep_batches", False)
         for item in outputs:
             source = Path(item["source"])
             destination = Path(item["destination"])
             destination.parent.mkdir(parents=True, exist_ok=True)
             if source.is_file():
-                if keep_timepoints:
+                if keep_batches:
                     temporary = destination.with_name(f".{destination.name}.tmp")
                     shutil.copy2(source, temporary)
                     os.replace(temporary, destination)
@@ -884,28 +884,28 @@ class StreamSpades:
                 raise RuntimeError(f"Unable to recover profiling output: {destination}")
 
     def process_file(self, path: Path, signature: Dict[str, Any]) -> None:
-        sequence = int(self.state["next_timepoint"])
-        label = f"timepoint_{sequence:06d}"
-        timepoint_dir = self.output_dir / "timepoints" / label
-        chunk_dir = timepoint_dir / "chunk"
-        profile_dir = timepoint_dir / "profile"
+        sequence = int(self.state["next_batch"])
+        label = f"batch_{sequence:06d}"
+        batch_dir = self.output_dir / "batches" / label
+        chunk_dir = batch_dir / "chunk"
+        profile_dir = batch_dir / "profile"
         chunk_prefix = f"{self.args.prefix}.t{sequence:06d}.chunk"
         profile_prefix = self.args.prefix
         log_prefix = f"{self.args.prefix}.t{sequence:06d}"
         observed_at = local_now()
-        # Keep process output outside the disposable in-progress timepoint tree so
+        # Keep process output outside the disposable in-progress batch tree so
         # failed/interrupted attempts remain available after recovery.
         run_log = self.output_dir / "logs" / f"{log_prefix}.run_SPADES.log"
         self.active_run_log = run_log
 
-        if timepoint_dir.exists():
-            shutil.rmtree(timepoint_dir)
+        if batch_dir.exists():
+            shutil.rmtree(batch_dir)
         chunk_dir.mkdir(parents=True)
 
         self.state["pending"] = {
             "stage": "started",
-            "timepoint": sequence,
-            "timepoint_dir": str(timepoint_dir),
+            "batch": sequence,
+            "batch_dir": str(batch_dir),
             "signature": signature,
         }
         self._save_state()
@@ -972,8 +972,8 @@ class StreamSpades:
             if not db_level:
                 raise RuntimeError("Cannot determine the database level for cumulative BAM")
 
-            candidate = timepoint_dir / f"candidate.gottcha_{db_level}.bam"
-            merged_unsorted = timepoint_dir / "merged.unsorted.bam"
+            candidate = batch_dir / f"candidate.gottcha_{db_level}.bam"
+            merged_unsorted = batch_dir / "merged.unsorted.bam"
             cumulative = self.output_dir / "cumulative" / (
                 f"{self.args.prefix}.gottcha_{db_level}.bam"
             )
@@ -1008,12 +1008,12 @@ class StreamSpades:
                 raise RuntimeError(f"Merged BAM failed validation: {candidate}")
             else:
                 logging.info(
-                    "Merged cumulative BAM for timepoint %s: %s",
+                    "Merged cumulative BAM for batch %s: %s",
                     sequence,
                     self._relative_path(candidate),
                 )
 
-            candidate_fasta = timepoint_dir / "candidate.sylph_extracted.fa.gz"
+            candidate_fasta = batch_dir / "candidate.sylph_extracted.fa.gz"
             cumulative_fasta = (
                 self.output_dir
                 / "cumulative"
@@ -1031,7 +1031,7 @@ class StreamSpades:
                 )
             else:
                 logging.info(
-                    "Merged cumulative Sylph-extracted FASTA for timepoint %s: %s",
+                    "Merged cumulative Sylph-extracted FASTA for batch %s: %s",
                     sequence,
                     self._relative_path(candidate_fasta),
                 )
@@ -1072,10 +1072,10 @@ class StreamSpades:
             profile_dir, profile_prefix
         )
         final_result = Path(latest_outputs["pathogen_full_tsv"])
-        keep_timepoints = getattr(self.args, "keep_timepoints", False)
+        keep_batches = getattr(self.args, "keep_batches", False)
 
         record = {
-            "timepoint": sequence,
+            "batch": sequence,
             "observed_at": observed_at,
             "completed_at": local_now(),
             "input_file": signature["path"],
@@ -1084,7 +1084,7 @@ class StreamSpades:
             **qc_metrics,
             "chunk_bam": (
                 str(chunk_bam.resolve())
-                if keep_timepoints and valid_chunk_bam and chunk_bam
+                if keep_batches and valid_chunk_bam and chunk_bam
                 else ""
             ),
             "cumulative_bam": str(cumulative) if cumulative else previous_text,
@@ -1099,17 +1099,17 @@ class StreamSpades:
             "run_log": str(run_log.resolve()),
             "status": status,
         }
-        if not keep_timepoints:
+        if not keep_batches:
             record["qc_json"] = ""
         prior_raw_reads = sum(
             int(item["raw_reads"])
-            for item in self.state.get("timepoints", [])
+            for item in self.state.get("batches", [])
             if item.get("raw_reads") not in (None, "")
         )
-        previous_timepoints = self.state.get("timepoints", [])
+        previous_batches = self.state.get("batches", [])
         prior_filtered_reads = sum(
             int(item["filtered_reads"])
-            for item in previous_timepoints
+            for item in previous_batches
             if item.get("filtered_reads") not in (None, "")
         )
         record["cumulative_raw_reads"] = prior_raw_reads + int(qc_metrics["raw_reads"] or 0)
@@ -1117,7 +1117,7 @@ class StreamSpades:
             qc_metrics["filtered_reads"] not in (None, "")
             and all(
                 item.get("filtered_reads") not in (None, "")
-                for item in previous_timepoints
+                for item in previous_batches
             )
         )
         record["cumulative_filtered_reads"] = (
@@ -1127,8 +1127,8 @@ class StreamSpades:
         )
         self.state["pending"] = {
             "stage": "ready",
-            "timepoint": sequence,
-            "timepoint_dir": str(timepoint_dir),
+            "batch": sequence,
+            "batch_dir": str(batch_dir),
             "signature": signature,
             "candidate_bam": str(candidate) if candidate else "",
             "cumulative_bam": str(cumulative) if cumulative else previous_text,
@@ -1160,7 +1160,7 @@ class StreamSpades:
             while True:
                 ready = self.ready_files()
                 if ready:
-                    # Process exactly one timepoint at a time. Rescan only after its
+                    # Process exactly one batch at a time. Rescan only after its
                     # chunk run, cumulative merge/profile, and state save complete.
                     path, signature = ready[0]
                     if len(ready) > 1:
@@ -1204,7 +1204,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog="""
 How it works:
-  New or changed FASTA/FASTQ files become timepoints after their size and
+  New or changed FASTA/FASTQ files become batches after their size and
   modification time remain unchanged for --settle-seconds. Results and state
   are retained in OUTDIR, so restarting with the same options resumes safely.
 
@@ -1288,8 +1288,8 @@ same command again to resume.
     )
     parser.set_defaults(recursive=True)
     parser.add_argument(
-        "--keep-timepoints", action="store_true",
-        help="Keep per-timepoint chunk and staged profiling files (default: discard them)",
+        "--keep-batches", action="store_true",
+        help="Keep per-batch chunk and staged profiling files (default: discard them)",
     )
     parser.add_argument(
         "--once", action="store_true", help="Process currently stable files and exit"

@@ -16,6 +16,7 @@ Usage:
     [--spades-data <spades_data_dir>] \
     [--min-depth <min_depth>] \
     [--skip-qc] \
+    [--auto-skip-qc-ratio <ratio>] \
     [--ont] \
     [--ont-error-rate <float>] \
     [--clean]
@@ -38,6 +39,8 @@ Optional:
   --ont               Treat reads/BAM as ONT data; read input is split to 150bp
   --ont-error-rate    Error rate for ONT reads (passed to gottcha2 -er), default: 0.03
   --skip-qc           Skip fastp/fastplong quality control and preprocessing steps
+  --auto-skip-qc-ratio
+                      Use original reads when QC retains less than this fraction (default: 0.2)
   --js-external       Deprecated compatibility option; HTML resources are always embedded
   --clean             Remove large intermediates after the run
   --version           Show script version and exit
@@ -46,7 +49,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.3.3"
+VERSION="1.3.4"
 INPUT=""
 BAM_INPUT=""
 BAM_MODE="false"
@@ -70,6 +73,8 @@ JS_EXTERNAL="false"
 MIN_DEPTH="10"
 DB_LEVEL=""
 SKIP_QC="false"
+AUTO_SKIP_QC_RATIO="0.2"
+USE_ORIGINAL_READS="false"
 
 # parse args
 while [[ $# -gt 0 ]]; do
@@ -86,6 +91,11 @@ while [[ $# -gt 0 ]]; do
     --ont)             ONT="true"; shift ;;
     --ont-error-rate)  ONT_ERROR_RATE="${2:-}"; shift 2 ;;
     --skip-qc)         SKIP_QC="true"; shift ;;
+    --auto-skip-qc-ratio)
+      [[ $# -ge 2 ]] || { echo "ERROR: --auto-skip-qc-ratio requires a value" >&2; exit 2; }
+      AUTO_SKIP_QC_RATIO="$2"
+      shift 2
+      ;;
     --js-external)     JS_EXTERNAL="true"; shift ;;
     --clean)           CLEAN_FLAG="true"; shift ;; 
     --min-depth)       MIN_DEPTH="${2:-}"; shift 2 ;;
@@ -157,6 +167,7 @@ fi
 [[ -f "$SPADES_DATA/pathogen.tsv" ]]|| { echo "ERROR: missing $SPADES_DATA/pathogen.tsv" >&2; exit 2; }
 [[ "$ONT_ERROR_RATE" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "ERROR: --ont-error-rate must be numeric (e.g., 0.03)" >&2; exit 2; }
 [[ "$MIN_DEPTH" =~ ^[0-9]+$ && "$MIN_DEPTH" -gt 0 ]] || { echo "ERROR: --min-depth must be a positive integer" >&2; exit 2; }
+[[ "$AUTO_SKIP_QC_RATIO" =~ ^(0|0?\.[0-9]+|1(\.0+)?)$ ]] || { echo "ERROR: --auto-skip-qc-ratio must be between 0 and 1 (e.g., 0.2)" >&2; exit 2; }
 
 detect_db_level() {
   local db_path="$1"
@@ -291,6 +302,48 @@ fastplong_qc() {
   return $status
 }
 
+auto_skip_qc_if_needed() {
+  local report="$INPUT_QC.json"
+  local counts=""
+  local pre_qc_reads=""
+  local post_qc_reads=""
+
+  if [[ ! -r "$report" ]]; then
+    log_error "Unable to read QC report: '$report'."
+    return 1
+  fi
+
+  counts=$(awk '
+    {
+      remaining = $0
+      while (match(remaining, /"total_reads"[[:space:]]*:[[:space:]]*[0-9][0-9]*/)) {
+        value = substr(remaining, RSTART, RLENGTH)
+        sub(/.*:[[:space:]]*/, "", value)
+        values[++count] = value
+        if (count == 2) {
+          print values[1], values[2]
+          exit
+        }
+        remaining = substr(remaining, RSTART + RLENGTH)
+      }
+    }
+  ' "$report")
+  read -r pre_qc_reads post_qc_reads <<< "$counts"
+
+  if [[ ! "$pre_qc_reads" =~ ^[0-9]+$ || ! "$post_qc_reads" =~ ^[0-9]+$ ]]; then
+    log_error "Unable to parse the first two total_reads values from QC report: '$report'."
+    return 1
+  fi
+
+  if awk -v pre="$pre_qc_reads" -v post="$post_qc_reads" -v threshold="$AUTO_SKIP_QC_RATIO" \
+    'BEGIN { exit !(pre > 0 && post < pre * threshold) }'; then
+    USE_ORIGINAL_READS="true"
+    log_success "QC retained $post_qc_reads of $pre_qc_reads reads, below the automatic bypass threshold ($AUTO_SKIP_QC_RATIO); using original input reads downstream."
+  else
+    log_success "QC retained $post_qc_reads of $pre_qc_reads reads; using QC-filtered reads downstream."
+  fi
+}
+
 run_gottcha2() {
   if [[ "$BAM_MODE" == "true" ]]; then
       log_start "Re-running GOTTCHA2 profiling from existing BAM..."
@@ -346,7 +399,7 @@ run_gottcha2() {
     touch "$OUTDIR/$PREFIX.tsv"
     touch "$OUTDIR/$PREFIX.full.tsv"
     log_success "GOTTCHA2 run finished: results in '$OUTDIR'."
-    if ! grep -q "superkingdom" "$OUTDIR/$PREFIX.tsv"; then
+    if ! grep -q "superkingdom" "$OUTDIR/$PREFIX.full.tsv"; then
       log_start "No GOTTCHA2 results found. Creating placeholder outputs for downstream steps..."
       create_placeholder_outputs || exit $?
       log_success "Stopping pipeline."
@@ -632,22 +685,24 @@ run_pipeline() {
     fi
   elif [[ "$ONT" == "true" ]]; then
     fastplong_qc || exit $?
+    auto_skip_qc_if_needed || exit $?
     ONT_FLAG="-np -er $ONT_ERROR_RATE"
   else
     fastp_qc || exit $?
+    auto_skip_qc_if_needed || exit $?
   fi
 
   if [[ "$BAM_MODE" == "true" ]]; then
     :
   elif [[ "$PAIRED" == "true" ]]; then
-    if [[ "$SKIP_QC" == "true" ]]; then
+    if [[ "$SKIP_QC" == "true" || "$USE_ORIGINAL_READS" == "true" ]]; then
       READ1="$READ1"
       READ2="$READ2"
     else
       READ1="$INPUT_QC_R1"
       READ2="$INPUT_QC_R2"
     fi
-  elif [[ "$SKIP_QC" == "true" ]]; then
+  elif [[ "$SKIP_QC" == "true" || "$USE_ORIGINAL_READS" == "true" ]]; then
     READ="$INPUT"
   else
     READ="$INPUT_QC"

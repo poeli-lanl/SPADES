@@ -710,7 +710,7 @@ run_pipeline() {
 
   run_gottcha2 || exit $?
   generate_krona_plot || exit $?
-  annotate_pathogens_qualified || exit $?
+  annotate_pathogens_qualified || true  # Continue even if this step fails
   annotate_pathogens_full || exit $?
   extract_summary_levels || exit $?
   generate_result_viewer || exit $?

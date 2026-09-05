@@ -7,6 +7,7 @@ WORKDIR /tmp/build
 
 COPY --chown=${MAMBA_USER}:${MAMBA_USER} environment.yml ./environment.yml
 # ENV PIP_TRUSTED_HOST="pypi.org files.pythonhosted.org"
+# RUN micromamba env create --ssl-verify false -y -n spades -f environment.yml \
 RUN micromamba env create -y -n spades -f environment.yml \
     && micromamba clean -a -y
 
@@ -22,7 +23,7 @@ COPY --from=builder /opt/conda /opt/conda
 WORKDIR /app
 COPY data/ ./data/
 COPY scripts/ ./scripts/
-COPY run_SPADES.sh post_install.sh ./
+COPY run_SPADES.sh stream_spades.py post_install.sh ./
 COPY README.md ./
 
 RUN ./post_install.sh

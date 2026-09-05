@@ -59,7 +59,7 @@ class FakeStreamSpades(stream_spades.StreamSpades):
                     "#rname\tstartpos\tendpos\n", encoding="utf-8"
                 )
             else:
-                sequence = int(self.state["pending"]["timepoint"])
+                sequence = int(self.state["pending"]["batch"])
                 (outdir / f"{prefix}.pathogen.full.tsv").write_text(
                     "LEVEL\tNAME\tTAXID\tREAD_COUNT\tSIG_COV\tSNI_SCORE\tHUMAN_PATHOGEN\n"
                     f"species\tTest pathogen\t1234\t{sequence * 10}\t"
@@ -123,7 +123,7 @@ class StreamSpadesTests(unittest.TestCase):
             min_depth=10,
             skip_qc=False,
             recursive=False,
-            keep_timepoints=False,
+            keep_batches=False,
             js_external=False,
             once=True,
             max_files=None,
@@ -190,7 +190,7 @@ class StreamSpadesTests(unittest.TestCase):
         runner = FakeStreamSpades(self.args)
         runner.run()
 
-        record = runner.state["timepoints"][0]
+        record = runner.state["batches"][0]
         self.assertEqual(record["raw_reads"], 2)
         self.assertIsNone(record["filtered_reads"])
         self.assertEqual(record["cumulative_raw_reads"], 2)
@@ -215,7 +215,7 @@ class StreamSpadesTests(unittest.TestCase):
 
         self.assertEqual(runner.scan(), [read.resolve()])
 
-    def test_two_timepoints_merge_and_resume(self):
+    def test_two_batches_merge_and_resume(self):
         first = self.input_dir / "chunk_1.fastq.gz"
         second = self.input_dir / "chunk_2.fasta"
         first.write_bytes(b"first\n")
@@ -242,19 +242,19 @@ class StreamSpadesTests(unittest.TestCase):
             merged_fasta = handle.read()
         self.assertIn(">reference_chunk_1.fastq.gz\nACGT\n", merged_fasta)
         self.assertIn(">reference_chunk_2.fasta\nACGT\n", merged_fasta)
-        self.assertEqual(len(resumed.state["timepoints"]), 2)
-        self.assertEqual(resumed.state["next_timepoint"], 3)
+        self.assertEqual(len(resumed.state["batches"]), 2)
+        self.assertEqual(resumed.state["next_batch"], 3)
 
-        manifest = (self.output_dir / "timepoints.tsv").read_text(encoding="utf-8")
-        self.assertFalse((self.output_dir / "timepoints").exists())
+        manifest = (self.output_dir / "batches.tsv").read_text(encoding="utf-8")
+        self.assertFalse((self.output_dir / "batches").exists())
         self.assertIn("chunk_1.fastq.gz", manifest)
         self.assertIn("chunk_2.fasta", manifest)
         self.assertIn("cumulative/stream.pathogen.full.tsv", manifest)
         self.assertIn("cumulative/stream.sylph_extracted.fa.gz", manifest)
         self.assertIn("raw_reads", manifest.splitlines()[0])
-        self.assertEqual(resumed.state["timepoints"][0]["raw_reads"], 10)
-        self.assertEqual(resumed.state["timepoints"][1]["filtered_reads"], 8)
-        self.assertEqual(resumed.state["timepoints"][1]["cumulative_raw_reads"], 20)
+        self.assertEqual(resumed.state["batches"][0]["raw_reads"], 10)
+        self.assertEqual(resumed.state["batches"][1]["filtered_reads"], 8)
+        self.assertEqual(resumed.state["batches"][1]["cumulative_raw_reads"], 20)
 
         report = (self.output_dir / "stream.stream.html").read_text(encoding="utf-8")
         self.assertIn("Latest profiling results", report)
@@ -297,21 +297,21 @@ class StreamSpadesTests(unittest.TestCase):
 
         no_duplicates = FakeStreamSpades(self.args)
         no_duplicates.run()
-        self.assertEqual(len(no_duplicates.state["timepoints"]), 2)
+        self.assertEqual(len(no_duplicates.state["batches"]), 2)
 
-    def test_timepoint_outputs_can_be_kept_explicitly(self):
-        self.args.keep_timepoints = True
+    def test_batch_outputs_can_be_kept_explicitly(self):
+        self.args.keep_batches = True
         (self.input_dir / "chunk.fastq.gz").write_bytes(b"reads\n")
 
         runner = FakeStreamSpades(self.args)
         runner.run()
 
-        timepoint = self.output_dir / "timepoints" / "timepoint_000001"
-        self.assertTrue((timepoint / "chunk").is_dir())
-        self.assertTrue((timepoint / "profile" / "stream.pathogen.full.tsv").is_file())
+        batch = self.output_dir / "batches" / "batch_000001"
+        self.assertTrue((batch / "chunk").is_dir())
+        self.assertTrue((batch / "profile" / "stream.pathogen.full.tsv").is_file())
         self.assertTrue(
             (
-                timepoint
+                batch
                 / "profile"
                 / "intermediate"
                 / "stream.gottcha_species.coverage.tsv"
@@ -325,7 +325,7 @@ class StreamSpadesTests(unittest.TestCase):
 
         runner.run()
 
-        record = runner.state["timepoints"][0]
+        record = runner.state["batches"][0]
         self.assertEqual(record["status"], "no_alignments")
         self.assertTrue(Path(record["pathogen_full_html"]).is_file())
         self.assertTrue(Path(record["coverage_tsv"]).is_file())
@@ -344,8 +344,8 @@ class StreamSpadesTests(unittest.TestCase):
         runner = FakeStreamSpades(self.args)
         runner.run()
 
-        records = runner.state["timepoints"]
-        self.assertEqual([record["timepoint"] for record in records], [1, 2, 3])
+        records = runner.state["batches"]
+        self.assertEqual([record["batch"] for record in records], [1, 2, 3])
         self.assertEqual(
             [Path(record["input_file"]).name for record in records],
             ["01.fastq.gz", "02.fastq.gz", "03.fastq.gz"],
@@ -357,9 +357,9 @@ class StreamSpadesTests(unittest.TestCase):
         state = {
             "configuration": {"prefix": "stream", "database": "db"},
             "monitor_status": "running",
-            "timepoints": [],
+            "batches": [],
             "pending": {
-                "timepoint": 1,
+                "batch": 1,
                 "signature": {"path": "/incoming/chunk.fastq.gz"},
             },
         }
@@ -373,9 +373,9 @@ class StreamSpadesTests(unittest.TestCase):
             "configuration": {"prefix": "stream", "database": "db"},
             "monitor_status": "stopped",
             "pending": None,
-            "timepoints": [
+            "batches": [
                 {
-                    "timepoint": 1,
+                    "batch": 1,
                     "status": "profiled",
                     "profile_rows": [
                         {
@@ -429,15 +429,15 @@ class StreamSpadesTests(unittest.TestCase):
             "configuration": {"prefix": "stream", "database": "db"},
             "monitor_status": "stopped",
             "pending": None,
-            "timepoints": [
+            "batches": [
                 {
-                    "timepoint": 1,
+                    "batch": 1,
                     "pathogen_full_tsv": str(first_result),
                     "status": "profiled",
                     "completed_at_utc": "2026-07-09T10:00:00+00:00",
                 },
                 {
-                    "timepoint": 2,
+                    "batch": 2,
                     "pathogen_full_tsv": str(second_result),
                     "status": "profiled",
                     "completed_at_utc": "2026-07-09T10:10:00+00:00",

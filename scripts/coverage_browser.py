@@ -209,7 +209,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         }
 
         .app-shell {
-            max-width: 1280px;
+            /* max-width: 1280px; */
             margin: 0 auto;
             padding: 28px;
         }
@@ -366,9 +366,55 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             background: var(--panel);
             border-bottom: 1px solid var(--line);
             display: flex;
+            flex-wrap: wrap;
             gap: 12px;
             justify-content: space-between;
             padding: 14px 16px;
+        }
+
+        .panel-header-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .axis-mode-toggle {
+            background: var(--panel-soft);
+            border: 1px solid var(--line-strong);
+            border-radius: 7px;
+            display: inline-flex;
+            padding: 3px;
+        }
+
+        .axis-mode-button {
+            background: transparent;
+            border: 0;
+            border-radius: 5px;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 720;
+            min-height: 30px;
+            padding: 5px 10px;
+            transition: background-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+            white-space: nowrap;
+        }
+
+        .axis-mode-button:hover {
+            color: var(--text);
+        }
+
+        .axis-mode-button:focus-visible {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+            outline: none;
+        }
+
+        .axis-mode-button.active {
+            background: var(--panel);
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.14);
+            color: var(--accent-dark);
         }
 
         .panel-title {
@@ -589,13 +635,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
         .variant-marker {
             cursor: pointer;
-            stroke: white;
-            stroke-width: 1px;
+            stroke-width: 0px;
+            opacity: 0.5;
             transition: opacity 0.18s ease, stroke-width 0.18s ease;
         }
 
         .variant-marker:hover {
-            opacity: 0.88;
+            opacity: 0.95;
             stroke-width: 2px;
         }
 
@@ -603,6 +649,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             fill: var(--muted);
             font-size: 11px;
             font-weight: 720;
+            font-opacity: 0.8;
         }
 
         .variant-badge {
@@ -811,7 +858,29 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <section class="panel">
             <div class="panel-header">
                 <h2 class="panel-title">Signature Coverage</h2>
-                <span class="chip" v-if="currentGenome"><i class="pi pi-chart-bar"></i>{{ currentGenome.totalLength.toLocaleString() }} bp</span>
+                <div class="panel-header-actions">
+                    <div class="axis-mode-toggle" role="group" aria-label="Signature coverage x-axis scale">
+                        <button
+                            type="button"
+                            class="axis-mode-button"
+                            :class="{ active: coverageAxisMode === 'signature' }"
+                            :aria-pressed="coverageAxisMode === 'signature'"
+                            @click="selectCoverageAxisMode('signature')"
+                        >
+                            Total Signatures
+                        </button>
+                        <button
+                            type="button"
+                            class="axis-mode-button"
+                            :class="{ active: coverageAxisMode === 'genome' }"
+                            :aria-pressed="coverageAxisMode === 'genome'"
+                            @click="selectCoverageAxisMode('genome')"
+                        >
+                            Genomic Position
+                        </button>
+                    </div>
+                    <span class="chip" v-if="currentGenome"><i class="pi pi-chart-bar"></i>{{ coverageAxisLength.toLocaleString() }} bp</span>
+                </div>
             </div>
             <div class="panel-body plot-body">
                 <div id="coverage-plot"></div>
@@ -917,8 +986,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         
         // Initialize D3 variables
         let svg, xScale, yScale, xAxis, yAxis, xAxisTop, brush;
+        let coveragePlotObserver, coverageResizeFrame;
         const margin = {top: 50, right: 30, bottom: 50, left: 60};
-        const width = 1100 - margin.left - margin.right;
+        const minimumChartWidth = 640;
+        let width = 1100 - margin.left - margin.right;
         const height = 400 - margin.top - margin.bottom;
         
         // Initialize Vue app
@@ -937,7 +1008,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         }
         
         // Reactive state variables accessible globally
-        let selectedTaxid, currentGenome, currentFragment;
+        let selectedTaxid, currentGenome, currentFragment, coverageAxisMode;
         
         // Register Vue-Select component
         const app = createApp({
@@ -946,6 +1017,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 selectedTaxid = ref('');
                 currentGenome = ref(null);
                 currentFragment = ref(null);
+                coverageAxisMode = ref('signature');
                 const selectedGenome = ref(null);
                 
                 // Calculate unique taxids and read counts
@@ -1017,6 +1089,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
                     return { fragmentCount, readCount, overallCoverage, coverageSource, meanDepth };
                 });
+
+                const coverageAxisLength = computed(() => {
+                    if (!currentGenome.value) return 0;
+                    return getFullXAxisDomain(currentGenome.value)[1];
+                });
                 
                 // Methods
                 function handleGenomeChange() {
@@ -1042,9 +1119,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
                 function resetZoom() {
                     if (currentGenome.value) {
-                        xScale.domain([0, currentGenome.value.totalLength]);
+                        xScale.domain(getFullXAxisDomain(currentGenome.value));
+                        svg.select(".brush").call(brush.move, null);
                         updateChart();
                     }
+                }
+
+                function selectCoverageAxisMode(mode) {
+                    changeCoverageAxisMode(mode);
                 }
                 
                 onMounted(() => {
@@ -1055,6 +1137,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                         currentGenome.value = genomeData.find(g => g.taxid === selectedTaxid.value);
                         updateVisualization();
                     }
+                    initializeCoveragePlotObserver();
                 });
 
                 return {
@@ -1064,12 +1147,15 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                     currentGenome,
                     currentFragment,
                     currentSummary,
+                    coverageAxisMode,
+                    coverageAxisLength,
                     genomesWithReadCounts,
                     vcfFiles,
                     minVariantDepth,
                     formatPercent,
                     handleGenomeChange,
                     handleGenomeSelect,
+                    selectCoverageAxisMode,
                     resetZoom
                 };
             },
@@ -1095,15 +1181,105 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         const tooltip = d3.select('body').append('div')
             .attr('class', 'tooltip')
             .style('opacity', 0);
+
+        const chartTransitionDuration = 750;
+
+        function usesGenomeXAxis() {
+            return coverageAxisMode && coverageAxisMode.value === 'genome';
+        }
+
+        function getFullXAxisDomain(genome) {
+            if (!genome) return [0, 1];
+
+            let axisLength = Number(usesGenomeXAxis() ? genome.genomeSize : genome.totalLength);
+            if (!Number.isFinite(axisLength) || axisLength <= 0) {
+                const fragments = coverageData.filter(d => String(d.genome_taxid) === String(genome.taxid));
+                axisLength = usesGenomeXAxis()
+                    ? fragments.reduce((maximum, fragment) => Math.max(maximum, Number(fragment.end_position) || 0), 0)
+                    : fragments.reduce((total, fragment) => {
+                        return total + Math.max(0, Number(fragment.end_position) - Number(fragment.start_position) + 1);
+                    }, 0);
+            }
+
+            return [0, Math.max(1, axisLength)];
+        }
+
+        function getFragmentXStart(fragment) {
+            // Coverage coordinates are 1-based and inclusive; use half-open plot bounds.
+            return usesGenomeXAxis() ? Math.max(0, Number(fragment.start_position) - 1) : Number(fragment.x_start);
+        }
+
+        function getFragmentXEnd(fragment) {
+            return usesGenomeXAxis() ? Number(fragment.end_position) : Number(fragment.x_end);
+        }
+
+        function getFragmentPixelWidth(fragment) {
+            return Math.max(2, xScale(getFragmentXEnd(fragment)) - xScale(getFragmentXStart(fragment)));
+        }
+
+        function getVariantXPosition(variant) {
+            return usesGenomeXAxis() ? Math.max(0, Number(variant.genome_x) - 1) : Number(variant.signature_x);
+        }
+
+        function getBottomXAxisLabel() {
+            return usesGenomeXAxis() ? 'Genomic Position (bp)' : 'Total Signature (bp)';
+        }
+
+        function getTopXAxisLabel() {
+            return usesGenomeXAxis() ? 'Genome Position (%)' : 'Covered Signature Fragment (%)';
+        }
+
+        function changeCoverageAxisMode(mode) {
+            if (!coverageAxisMode || (mode !== 'signature' && mode !== 'genome')) return;
+            if (coverageAxisMode.value === mode) return;
+
+            coverageAxisMode.value = mode;
+            if (!currentGenome || !currentGenome.value || !svg || !xScale) return;
+
+            xScale.domain(getFullXAxisDomain(currentGenome.value));
+            svg.select('.brush').call(brush.move, null);
+            updateChart();
+        }
+
+        function getCoveragePlotOuterWidth() {
+            const plot = document.getElementById('coverage-plot');
+            const availableWidth = plot ? Math.floor(plot.getBoundingClientRect().width) : 0;
+            return Math.max(minimumChartWidth, availableWidth);
+        }
+
+        function initializeCoveragePlotObserver() {
+            const plot = document.getElementById('coverage-plot');
+            if (!plot || coveragePlotObserver || typeof ResizeObserver === 'undefined') return;
+
+            let observedWidth = Math.floor(plot.getBoundingClientRect().width);
+            coveragePlotObserver = new ResizeObserver(entries => {
+                const nextWidth = Math.floor(entries[0].contentRect.width);
+                if (!nextWidth || Math.abs(nextWidth - observedWidth) < 2) return;
+                observedWidth = nextWidth;
+
+                if (coverageResizeFrame) cancelAnimationFrame(coverageResizeFrame);
+                coverageResizeFrame = requestAnimationFrame(() => {
+                    if (currentGenome && currentGenome.value) {
+                        updateVisualization();
+                    } else {
+                        initVisualization();
+                    }
+                });
+            });
+            coveragePlotObserver.observe(plot);
+        }
         
         // Initialize the visualization container
         function initVisualization() {
             d3.select("#coverage-plot").html("");
+
+            const chartOuterWidth = getCoveragePlotOuterWidth();
+            width = chartOuterWidth - margin.left - margin.right;
             
             svg = d3.select("#coverage-plot")
                 .append("svg")
-                .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-                .attr("width", "100%")
+                .attr("viewBox", `0 0 ${chartOuterWidth} ${height + margin.top + margin.bottom}`)
+                .attr("width", chartOuterWidth)
                 .attr("height", height + margin.top + margin.bottom)
                 .attr("role", "img")
                 .append("g")
@@ -1129,20 +1305,22 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             
             // Add axis labels
             svg.append("text")
+                .attr("class", "x-axis-label")
                 .attr("transform", `translate(${width/2},${height + 40})`)
                 .style("text-anchor", "middle")
                 .style("font-size", "12px")
                 .style("font-weight", "700")
                 .style("fill", "#697386")
-                .text("Total Signature (bp)");
+                .text(getBottomXAxisLabel());
             
             svg.append("text")
+                .attr("class", "x-axis-top-label")
                 .attr("transform", `translate(${width/2},-30)`)
                 .style("text-anchor", "middle")
                 .style("font-size", "12px")
                 .style("font-weight", "700")
                 .style("fill", "#697386")
-                .text("Covered Signature Fragment (%)");
+                .text(getTopXAxisLabel());
             
             svg.append("text")
                 .attr("transform", "rotate(-90)")
@@ -1226,7 +1404,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                         fragment_start: fragmentStart,
                         fragment_end: fragmentEnd,
                         relative_position: markerPosition - fragmentStart + 1,
-                        signature_x: signatureX
+                        signature_x: signatureX,
+                        genome_x: markerPosition
                     });
                 });
             });
@@ -1246,8 +1425,14 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
             svg.append('text')
                 .attr('class', 'variant-track-label')
                 .attr('x', 0)
-                .attr('y', variantTrackY - 10)
+                .attr('y', variantTrackY + 5)
                 .text('Variants');
+
+            svg.append('text')
+                .attr('class', 'variant-track-label')
+                .attr('x', 0)
+                .attr('y', variantTrackY - 12)
+                .text('Signature Fragments');
 
             const variantTypes = [...new Set(mappedVariants.map(d => d.type || 'VAR'))];
             const variantColorScale = d3.scaleOrdinal(d3.schemeSet2).domain(variantTypes);
@@ -1259,7 +1444,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .append('path')
                 .attr('class', 'variant-marker')
                 .attr('d', markerSymbol)
-                .attr('transform', d => `translate(${xScale(d.signature_x)},${variantTrackY}) rotate(180)`)
+                .attr('transform', d => `translate(${xScale(getVariantXPosition(d))},${variantTrackY}) rotate(180)`)
                 .attr('fill', d => variantColorScale(d.type || 'VAR'))
                 .on('mouseover', function(event, d) {
                     tooltip.transition()
@@ -1381,8 +1566,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 return a.seq_name.localeCompare(b.seq_name);
             });
             
-            // Set x domain based on total fragments
-            xScale.domain([0, currentGenomeValue.totalLength]);
+            // Set the x domain for the currently selected coordinate system
+            xScale.domain(getFullXAxisDomain(currentGenomeValue));
             
             // Set y domain based on maximum mean depth with some padding
             const maxMeanDepth = d3.max(genomeFragments, d => d.meandepth);
@@ -1433,9 +1618,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .enter()
                 .append("rect")
                 .attr("class", "fragment-background")
-                .attr("x", d => xScale(d.x_start))
+                .attr("x", d => xScale(getFragmentXStart(d)))
                 .attr("y", d => yScale(d.meandepth))
-                .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)))
+                .attr("width", getFragmentPixelWidth)
                 .attr("height", d => height - yScale(d.meandepth))
                 .attr("fill", "#e8eef6")
                 .attr("rx", 5)
@@ -1447,9 +1632,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .enter()
                 .append("rect")
                 .attr("class", "fragment-indicator")
-                .attr("x", d => xScale(d.x_start))
+                .attr("x", d => xScale(getFragmentXStart(d)))
                 .attr("y", 0) // Position at the top below the axis
-                .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)))
+                .attr("width", getFragmentPixelWidth)
                 .attr("height", 15)
                 .attr("fill", d => colorScale(d.seq_name))
                 .attr("opacity", d => d.coverage / 100) // Opacity based on coverage percentage
@@ -1498,9 +1683,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                 .enter()
                 .append("rect")
                 .attr("class", "fragment")
-                .attr("x", d => xScale(d.x_start))
+                .attr("x", d => xScale(getFragmentXStart(d)))
                 .attr("y", d => yScale(d.meandepth))
-                .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)) * (d.coverage / 100)) // Width based on coverage percentage
+                .attr("width", d => getFragmentPixelWidth(d) * (d.coverage / 100)) // Width based on coverage percentage
                 .attr("height", d => height - yScale(d.meandepth))
                 .attr("fill", d => colorScale(d.seq_name))
                 .attr("rx", 4)
@@ -1926,7 +2111,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         function resetZoom() {
             const currentGenomeValue = currentGenome.value;
             if (!currentGenomeValue) return;
-            xScale.domain([0, currentGenomeValue.totalLength]);
+            xScale.domain(getFullXAxisDomain(currentGenomeValue));
+            svg.select(".brush").call(brush.move, null);
             updateChart();
         }
         
@@ -1934,50 +2120,82 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         function updateChart() {
             // Update x-axis
             svg.select(".x-axis")
+                .interrupt()
                 .transition()
-                .duration(750)
+                .duration(chartTransitionDuration)
+                .ease(d3.easeCubicInOut)
                 .call(d3.axisBottom(xScale));
             
             // Update top x-axis (percentage scale needs to be recalculated based on current zoom)
             const currentDomain = xScale.domain();
-            const totalLength = currentGenome.value.totalLength;
-            const startPercent = (currentDomain[0] / totalLength) * 100;
-            const endPercent = (currentDomain[1] / totalLength) * 100;
+            const fullDomain = getFullXAxisDomain(currentGenome.value);
+            const axisLength = fullDomain[1] - fullDomain[0];
+            const startPercent = ((currentDomain[0] - fullDomain[0]) / axisLength) * 100;
+            const endPercent = ((currentDomain[1] - fullDomain[0]) / axisLength) * 100;
             
             const xScalePercentZoomed = d3.scaleLinear()
                 .domain([startPercent, endPercent])
                 .range([0, width]);
             
             svg.select(".x-axis-top")
+                .interrupt()
                 .transition()
-                .duration(750)
+                .duration(chartTransitionDuration)
+                .ease(d3.easeCubicInOut)
                 .call(d3.axisTop(xScalePercentZoomed).tickFormat(d => d.toFixed(1) + "%"));
+
+            svg.select(".x-axis-label")
+                .interrupt()
+                .attr("opacity", 0)
+                .text(getBottomXAxisLabel())
+                .transition()
+                .duration(chartTransitionDuration / 2)
+                .attr("opacity", 1);
+
+            svg.select(".x-axis-top-label")
+                .interrupt()
+                .attr("opacity", 0)
+                .text(getTopXAxisLabel())
+                .transition()
+                .duration(chartTransitionDuration / 2)
+                .attr("opacity", 1);
             
             // Update fragments - all components including indicators
             svg.selectAll(".fragment-background")
+                .interrupt()
                 .transition()
-                .duration(750)
-                .attr("x", d => xScale(d.x_start))
-                .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)));
+                .duration(chartTransitionDuration)
+                .ease(d3.easeCubicInOut)
+                .attr("x", d => xScale(getFragmentXStart(d)))
+                .attr("width", getFragmentPixelWidth);
             
             svg.selectAll(".fragment-indicator")
+                .interrupt()
                 .transition()
-                .duration(750)
-                .attr("x", d => xScale(d.x_start))
-                .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)));
+                .duration(chartTransitionDuration)
+                .ease(d3.easeCubicInOut)
+                .attr("x", d => xScale(getFragmentXStart(d)))
+                .attr("width", getFragmentPixelWidth);
                 
             svg.selectAll(".fragment")
+                .interrupt()
                 .transition()
-                .duration(750)
-                .attr("x", d => xScale(d.x_start))
-                .attr("width", d => Math.max(2, xScale(d.x_end) - xScale(d.x_start)) * (d.coverage / 100));
+                .duration(chartTransitionDuration)
+                .ease(d3.easeCubicInOut)
+                .attr("x", d => xScale(getFragmentXStart(d)))
+                .attr("width", d => getFragmentPixelWidth(d) * (d.coverage / 100));
 
             const [domainStart, domainEnd] = xScale.domain();
             svg.selectAll(".variant-marker")
+                .interrupt()
+                .style("display", d => {
+                    const position = getVariantXPosition(d);
+                    return position >= domainStart && position <= domainEnd ? null : "none";
+                })
                 .transition()
-                .duration(750)
-                .attr("transform", d => `translate(${xScale(d.signature_x)},24) rotate(180)`)
-                .style("display", d => d.signature_x >= domainStart && d.signature_x <= domainEnd ? null : "none");
+                .duration(chartTransitionDuration)
+                .ease(d3.easeCubicInOut)
+                .attr("transform", d => `translate(${xScale(getVariantXPosition(d))},24) rotate(180)`);
         }
     }).catch(function(error) {
         console.error('Unable to load embedded report resources:', error);
@@ -2517,7 +2735,7 @@ def main():
         min_variant_depth=args.min_depth,
     )
 
-    print(f"Visualization generated: {os.path.abspath(args.output)}")
+    print(f"Converage HTML generated: {os.path.abspath(args.output)}")
 
 if __name__ == "__main__":
     main()

@@ -354,8 +354,8 @@ run_gottcha2() {
               -p "$PREFIX" \
               -d "$DB_PATH" \
               -r "GENOMIC_CONTENT_EST" \
-              -mf 0.9 \
-              -mg 0 \
+              -mf 0 \
+              -mg 90 \
               --mpa \
               -ss 0.85,0.95,0.99 \
               --verbose \
@@ -370,7 +370,7 @@ run_gottcha2() {
               -d "$DB_PATH" \
               -r "GENOMIC_CONTENT_EST" \
               -mf 0.9 \
-              -mg 0 \
+              -mg 90 \
               --fast-min-kmer 5 \
               --mpa \
               -ss 0.85,0.95,0.99 \

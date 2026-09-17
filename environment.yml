@@ -13,7 +13,7 @@ dependencies:
   - gsl
   - fastp
   - fastplong
-  - gottcha2
+  - gottcha2>=2.5.0
   - sylph
   - pip
   - pip:

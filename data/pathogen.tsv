@@ -3109,3 +3109,42 @@ TAXID	NAME	SOURCE	LOCATION	HOST	DISEASE
 1980456	Orthohantavirus andesense			human	Andes virus (ANDV) infection
 3052458	Bundibugyo virus	clinical blood sample	Democratic Republic of the Congo; Uganda	human	Bundibugyo virus disease; Ebola disease
 3052458	Orthoebolavirus bundibugyoense	clinical blood sample	Democratic Republic of the Congo; Uganda	human	Bundibugyo virus disease; Ebola disease
+3426298	Alphavirus chikungunya			human; Aedes mosquitoes; nonhuman primates	chikungunya; fever; severe arthralgia
+11974	Caliciviridae			humans and many other vertebrates	acute gastroenteritis; various animal diseases
+10911	Coltivirus			ticks; mammals; humans	Colorado tick fever and related coltivirus infections
+3428066	Coltivirus dermacentoris			dermacentor ticks; small rodents; humans	Colorado tick fever
+11118	Coronaviridae			mammals; birds; humans	respiratory and enteric diseases; includes COVID-19, SARS, MERS for particular species
+12066	Coxsackievirus			human	hand-foot-and-mouth disease; herpangina; aseptic meningitis; myocarditis
+3052518	Orthonairovirus haemorrhagiae			ixodid ticks; livestock; humans	Crimean-Congo hemorrhagic fever
+10358	Cytomegalovirus			mammals; species-specific; humans for HCMV	CMV infection; congenital CMV; disease in immunocompromised patients
+3052464	Orthoflavivirus denguei			human; Aedes mosquitoes; nonhuman primates	dengue; severe dengue / dengue hemorrhagic fever
+3426299	Alphavirus eastern			birds; mosquitoes; horses; humans	eastern equine encephalitis
+3044781	Orthoebolavirus			humans; nonhuman primates; bats implicated as reservoirs	Ebola virus disease; hemorrhagic fever
+33758	Echovirus			human	aseptic meningitis; febrile illness; exanthem; neonatal sepsis-like disease
+3050299	Lymphocryptovirus humangamma4			human	infectious mononucleosis; Burkitt lymphoma; Hodgkin lymphoma; nasopharyngeal carcinoma and other EBV-associated disease
+3052223	Henipavirus hendraense			flying foxes (Pteropus); horses; humans	Hendra disease; severe respiratory disease; encephalitis
+3052305	Mammarenavirus flexalense			rodents; humans rarely	febrile illness; documented laboratory-acquired infection
+3052307	Mammarenavirus guanaritoense			short-tailed cane mouse (Zygodontomys brevicauda); humans	Venezuelan hemorrhagic fever
+3052480	Orthohantavirus hantanense			striped field mouse (Apodemus agrarius); humans	hemorrhagic fever with renal syndrome (HFRS)
+1980413	Hantaviridae			rodents; shrews; moles; bats; humans for zoonotic members	HFRS; hantavirus pulmonary/cardiopulmonary syndrome
+3052465	Orthoflavivirus encephalitidis / Tick-borne encephalitis virus			Ixodes ticks; small mammals; humans	tick-borne encephalitis
+12092	Hepatovirus A			human; nonhuman primates	hepatitis A
+10407	Hepatitis B virus			human	hepatitis B; chronic hepatitis; cirrhosis; hepatocellular carcinoma
+3052230	Orthohepacivirus hominis			human	hepatitis C; cirrhosis; hepatocellular carcinoma
+12475	Hepatitis delta virus			human	hepatitis D; severe/chronic hepatitis
+1678143	Paslahepevirus balayani			human; pigs; wild boar; deer and other mammals depending genotype	hepatitis E
+3050293	Simplexvirus humanalpha2			human	oral herpes; genital herpes; keratitis; encephalitis; neonatal herpes
+3050292	Simplexvirus humanalpha1			human	oral herpes; genital herpes; keratitis; encephalitis; neonatal herpes
+3050294	Varicellovirus humanalpha3			human	varicella/chickenpox; herpes zoster/shingles
+3050305	Simplexvirus macacinealpha1			macaques; humans accidentally	usually latent/mild in macaques; severe B-virus encephalomyelitis in humans
+3044472	Orthoherpesviridae			vertebrates	varied: oral/genital herpes, chickenpox/shingles, CMV disease, mononucleosis, etc.
+10509	Mastadenovirus			human	respiratory infection; conjunctivitis; gastroenteritis; cystitis
+3044472	multiple species in Orthoherpesviridae			human	depends on HHV type: herpes, shingles, CMV disease, mononucleosis, roseola, Kaposi sarcoma, etc.
+3418651	Lentivirus humimdef2 / Human immunodeficiency virus 2				
+3418650	Lentivirus humimdef1 / Human immunodeficiency virus 1			human	HIV infection; AIDS
+10566	Human papillomavirus			human	papillomas/warts; cervical and other anogenital cancers; oropharyngeal cancer for high-risk types
+10798	Human parvovirus B19			human	erythema infectiosum; aplastic crisis; arthropathy; hydrops fetalis
+1906931	Human rotavirus			human	acute gastroenteritis, especially in infants and young children
+3428213	Deltaretrovirus priTlym2 / Human T-lymphotropic virus 2				
+3428212	Deltaretrovirus priTlym1 / Human T-lymphotropic virus 1			human	HTLV-1: adult T-cell leukemia/lymphoma; HAM/TSP; HTLV-2: usually asymptomatic, less clearly associated disease
+11308	Orthomyxoviridae			humans; birds; pigs; horses and other mammals	influenza; respiratory disease

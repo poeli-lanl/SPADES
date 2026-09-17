@@ -925,9 +925,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                         <div class="detail-label">Genome Size</div>
                         <div class="detail-value">{{ currentGenome.genomeSize.toLocaleString() }} bp</div>
                     </div>
-                    <div class="detail-item" v-if="currentGenome.bestSigCov !== null && currentGenome.bestSigCov !== undefined">
+                    <div class="detail-item" v-if="currentGenome.sigCov !== null && currentGenome.sigCov !== undefined">
                         <div class="detail-label">signature coverage</div>
-                        <div class="detail-value">{{ formatPercent(currentGenome.bestSigCov) }}</div>
+                        <div class="detail-value">{{ formatPercent(currentGenome.sigCov) }}</div>
                     </div>
                 </div>
             </div>
@@ -1078,7 +1078,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                     const totalBases = fragments.reduce((sum, fragment) => {
                         return sum + Math.max(0, Number(fragment.end_position) - Number(fragment.start_position) + 1);
                     }, 0);
-                    const profileCoverage = percentValue(genome.bestSigCov);
+                    const profileCoverage = percentValue(genome.sigCov);
                     const overallCoverage = profileCoverage !== null
                         ? profileCoverage
                         : (totalBases ? (coveredBases / totalBases) * 100 : 0);
@@ -2248,7 +2248,7 @@ def parse_full_file(full_file, uniq_taxid_list):
         dtype={'TAXID': 'string', 'PARENT_NAME': 'string'},
     )
 
-    required_cols = {'TAXID', 'PARENT_NAME', 'BEST_SIG_COV', 'SIG_LEVEL', 'NAME', 'TOTAL_SIG_LEN', 'GENOME_SIZE'}
+    required_cols = {'TAXID', 'PARENT_NAME', 'SIG_COV', 'SIG_LEVEL', 'NAME', 'TOTAL_SIG_LEN', 'GENOME_SIZE'}
     missing_cols = required_cols - set(df.columns)
     if missing_cols:
         raise ValueError(f"Full taxonomy file is missing required columns: {', '.join(sorted(missing_cols))}")
@@ -2256,7 +2256,7 @@ def parse_full_file(full_file, uniq_taxid_list):
     uniq_taxids = {str(t) for t in uniq_taxid_list}
     df['TAXID'] = df['TAXID'].astype(str)
     df = df[df['TAXID'].isin(uniq_taxids)]
-    df['BEST_SIG_COV'] = pd.to_numeric(df['BEST_SIG_COV'], errors='coerce')
+    df['SIG_COV'] = pd.to_numeric(df['SIG_COV'], errors='coerce')
     df['TOTAL_SIG_LEN'] = pd.to_numeric(df['TOTAL_SIG_LEN'], errors='coerce')
     df['GENOME_SIZE'] = pd.to_numeric(df['GENOME_SIZE'], errors='coerce')
 
@@ -2265,7 +2265,7 @@ def parse_full_file(full_file, uniq_taxid_list):
     for _, row in df.iterrows():
         taxid = str(row['TAXID'])
         parent_name = '' if pd.isna(row['PARENT_NAME']) else str(row['PARENT_NAME'])
-        best_sig_cov = None if pd.isna(row['BEST_SIG_COV']) else float(row['BEST_SIG_COV'])
+        sig_cov = None if pd.isna(row['SIG_COV']) else float(row['SIG_COV'])
         total_sig_len = int(row['TOTAL_SIG_LEN']) if not pd.isna(row['TOTAL_SIG_LEN']) else 0
         genome_size = int(row['GENOME_SIZE']) if not pd.isna(row['GENOME_SIZE']) else 0
         
@@ -2273,7 +2273,7 @@ def parse_full_file(full_file, uniq_taxid_list):
             'db_level': row['SIG_LEVEL'],
             'name': row['NAME'],
             'parentName': parent_name,
-            'bestSigCov': best_sig_cov,
+            'sigCov': sig_cov,
             'taxid': taxid,
             'superkingdom': row.get('SUPERKINGDOM', ''),
             'numOfSeq': int(row.get('NUM_FRAG', 0)) if 'NUM_FRAG' in df.columns and not pd.isna(row.get('NUM_FRAG')) else 0,

@@ -38,7 +38,7 @@ build commands.
 
 ### Database Requirements
 
-`run_SPADES.sh` uses `gottcha2 fast-profile`. The database path passed with
+The [**SPADES database**](https://ref-db.edgebioinformatics.org/spades-g2/) is available for download [here](https://ref-db.edgebioinformatics.org/spades-g2/). The script to start SPADES, `run_SPADES.sh`, uses `gottcha2 fast-profile`. The database path passed with
 `-d/--db-path` should be the base path without extensions, and these files must
 exist next to it:
 

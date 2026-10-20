@@ -1,0 +1,4 @@
+include LICENSE README.md environment.yml
+include run_SPADES.sh stream_spades.py post_install.sh
+recursive-include scripts *.py *.sh
+recursive-include test *.py

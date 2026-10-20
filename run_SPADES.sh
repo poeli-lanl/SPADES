@@ -49,7 +49,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.3.5"
+VERSION="1.3.6"
 INPUT=""
 BAM_INPUT=""
 BAM_MODE="false"
@@ -178,7 +178,7 @@ detect_db_level() {
   local part
   for part in $base; do
     case "$part" in
-      (superkingdom|phylum|class|order|family|genus|species|strain)
+      (domain|phylum|class|order|family|genus|species|strain)
         rank="$part"
         break
         ;;
@@ -399,7 +399,7 @@ run_gottcha2() {
     touch "$OUTDIR/$PREFIX.tsv"
     touch "$OUTDIR/$PREFIX.full.tsv"
     log_success "GOTTCHA2 run finished: results in '$OUTDIR'."
-    if ! grep -q "superkingdom" "$OUTDIR/$PREFIX.full.tsv"; then
+    if ! grep -q "domain" "$OUTDIR/$PREFIX.full.tsv"; then
       log_start "No GOTTCHA2 results found. Creating placeholder outputs for downstream steps..."
       create_placeholder_outputs || exit $?
       log_success "Stopping pipeline."
@@ -509,59 +509,34 @@ generate_result_viewer() {
 generate_coverage_browser() {
   log_start "Generating coverage browser HTML..."
   local bam="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.bam"
-  local coverage="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.coverage.tsv"
-  local ref="$OUTDIR/$PREFIX.sylph_extracted.fa.gz"
-  local vcf="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz"
-  local full_tsv="$OUTDIR/$PREFIX.full.tsv"
+  local bam_dir=""
   local status=0
 
   if [[ "$BAM_MODE" == "true" ]]; then
-    bam="$BAM_INPUT"
-  fi
-
-  if [[ $status -eq 0 ]]; then
-    samtools coverage "$bam" > "$coverage" || status=$?
-
-    if [[ -f "$ref" && $status -eq 0 ]]; then
-      # convert FASTA to bgzip format
-      gzip -dc "$ref" | bgzip -@ "$CPU" -c > "$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
-      ref="$OUTDIR/$PREFIX.sylph_extracted.fa.bgz"
-      samtools faidx "$ref"
-
-      # Generate VCF. --ploidy 1 is appropriate for bacterial/viral references.
-      bcftools mpileup \
-          -Ou \
-          -f "$ref" \
-          -q 20 \
-          -Q 20 \
-          -a FORMAT/DP,FORMAT/AD \
-          --threads "$CPU" \
-          "$bam" | \
-      bcftools call \
-          -mv \
-          --ploidy 1 \
-          -Oz \
-          --threads "$CPU" \
-          -o "$vcf" || status=$?
-
-      # index the VCF
-      bcftools index -t "$vcf" || status=$?
+    # GOTTCHA2 uses the BAM basename for its log and coverage intermediates.
+    # Stage the supplied BAM under this run's prefix without modifying it.
+    bam_dir=$(mktemp -d "$OUTDIR/.coverage-bam.XXXXXX") || status=$?
+    if [[ $status -eq 0 ]]; then
+      bam="$bam_dir/$PREFIX.gottcha_${DB_LEVEL}.bam"
+      # Hard links avoid copying large BAMs; copy across filesystems if needed.
+      ln "$(realpath "$BAM_INPUT")" "$bam" 2>/dev/null || cp "$BAM_INPUT" "$bam" || status=$?
+      ln -s "$(realpath "$BAM_INPUT.bai")" "$bam.bai" || status=$?
+      ln -s "$(realpath "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.log")" \
+        "${bam%.bam}.log" || status=$?
     fi
   fi
 
-  if [[ -f "$vcf" && $status -eq 0 ]]; then
-    coverage_browser.py \
-      -c "$coverage" \
-      -f "$full_tsv" \
-      --vcf "$vcf" \
+  if [[ $status -eq 0 ]]; then
+    gottcha2 coverage-browser \
+      -r "$OUTDIR" \
+      -p "$PREFIX" \
+      -b "$bam" \
       --min-depth "$MIN_DEPTH" \
       -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
-  else
-    coverage_browser.py \
-      -c "$coverage" \
-      -f "$full_tsv" \
-      --min-depth "$MIN_DEPTH" \
-      -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
+  fi
+
+  if [[ -n "$bam_dir" ]]; then
+    rm -rf -- "$bam_dir" || status=$?
   fi
 
   if [[ $status -eq 0 ]]; then
@@ -647,7 +622,7 @@ after_run() {
 }
 
 run_pipeline() {
-  log_start "Starting SPADES workflow..."
+  log_start "Starting SPADES workflow (v$VERSION)..."
 
   ONT_FLAG=""
 

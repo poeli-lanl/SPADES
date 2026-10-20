@@ -4,15 +4,8 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-
+from detaxa import taxonomy as gt
 import pandas as pd
-
-try:
-    # Try relative import first (for package usage)
-    from . import taxonomy as gt
-except ImportError:
-    # Fall back to direct import (for script usage)
-    import taxonomy as gt
 
 DEFAULT_LEVELS = {"strain", "species", "genus", "family"}
 DEFAULT_PATHOGEN_TSV = Path(__file__).resolve().parent.parent / "data" / "pathogen.tsv"
@@ -164,7 +157,7 @@ def pathogen_summary(df_taxa: pd.DataFrame) -> str:
         summary += f"{human_pathogens} pathogenic species known to infect humans were detected: "
 
         df_h_patho = df_taxa.loc[idx].copy()
-        df_h_patho['CATE'] = df_h_patho['TAXID'].apply(lambda x: gt.taxid2nameOnRank(x, 'superkingdom'))
+        df_h_patho['CATE'] = df_h_patho['TAXID'].apply(lambda x: gt.taxid2nameOnRank(x, 'domain'))
 
         # eidx = (df_h_patho['CATE'] == "Eukaryota")
         # if eidx.sum() > 0:

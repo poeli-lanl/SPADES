@@ -4,17 +4,16 @@ channels:
   - bioconda
 dependencies:
   - python=3.12
-  - minimap2>=2.17
+  - minimap2
   - pandas
   - numpy
   - krona
   - samtools
-  - bcftools
   - gsl
-  - fastp
-  - fastplong
-  - gottcha2>=2.5.0
-  - sylph
+  - fastp>=1.4.0
+  - fastplong>=0.7.1
+  - gottcha2>=2.5.1.1
   - pip
   - pip:
-    - minify_html
+    - detaxa
+    - minify_html>=0.18

@@ -8,7 +8,7 @@ from typing import Iterator, TextIO
 
 
 def open_text(filename: str) -> TextIO:
-    if filename.endswith(".gz"):
+    if filename.endswith((".gz", ".bgz")):
         return gzip.open(filename, "rt")
     return open(filename, "rt")
 

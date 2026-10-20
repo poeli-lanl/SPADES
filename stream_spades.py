@@ -553,6 +553,8 @@ class StreamSpades:
             return False
 
     def _merge_fastas(self, inputs: Sequence[Path], output: Path) -> None:
+        from pysam import BGZFile
+
         merge_script = Path(__file__).resolve().parent / "scripts" / "merge_fasta.py"
         command = [sys.executable, str(merge_script), *[str(path) for path in inputs]]
         plain = output.with_name(f".{output.name}.merge.tmp")
@@ -578,7 +580,7 @@ class StreamSpades:
                 raise subprocess.CalledProcessError(
                     result.returncode, command, stderr=result.stderr
                 )
-            with plain.open("rb") as source, gzip.open(compressed, "wb") as destination:
+            with plain.open("rb") as source, BGZFile(str(compressed), "wb") as destination:
                 shutil.copyfileobj(source, destination)
             os.replace(compressed, output)
         finally:
@@ -772,7 +774,7 @@ class StreamSpades:
 
     @staticmethod
     def _find_chunk_fasta(chunk_dir: Path, chunk_prefix: str) -> Optional[Path]:
-        filename = f"{chunk_prefix}.sylph_extracted.fa.gz"
+        filename = f"{chunk_prefix}.sylph_extracted.fa.bgz"
         candidates = [
             path
             for path in (chunk_dir / filename, chunk_dir / "intermediate" / filename)
@@ -943,7 +945,7 @@ class StreamSpades:
         previous_fasta_text = self.state.get("cumulative_fasta", "")
         if previous_bam is not None and not previous_fasta_text:
             inferred_fasta = (
-                self.output_dir / "cumulative" / f"{self.args.prefix}.sylph_extracted.fa.gz"
+                self.output_dir / "cumulative" / f"{self.args.prefix}.sylph_extracted.fa.bgz"
             )
             if inferred_fasta.is_file():
                 previous_fasta_text = str(inferred_fasta)
@@ -1013,11 +1015,11 @@ class StreamSpades:
                     self._relative_path(candidate),
                 )
 
-            candidate_fasta = batch_dir / "candidate.sylph_extracted.fa.gz"
+            candidate_fasta = batch_dir / "candidate.sylph_extracted.fa.bgz"
             cumulative_fasta = (
                 self.output_dir
                 / "cumulative"
-                / f"{self.args.prefix}.sylph_extracted.fa.gz"
+                / f"{self.args.prefix}.sylph_extracted.fa.bgz"
             )
             fasta_inputs = []
             if previous_fasta is not None:
@@ -1038,7 +1040,7 @@ class StreamSpades:
 
             profile_dir.mkdir(parents=True)
             profile_reference = (
-                profile_dir / f"{profile_prefix}.sylph_extracted.fa.gz"
+                profile_dir / f"{profile_prefix}.sylph_extracted.fa.bgz"
             )
             # BAM mode discovers its variant-calling reference by this output name.
             # A hard link exposes the merged FASTA without copying it.

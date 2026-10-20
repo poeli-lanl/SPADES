@@ -29,10 +29,12 @@ class FakeStreamSpades(stream_spades.StreamSpades):
                 bam = intermediate / f"{prefix}.gottcha_species.bam"
                 bam.write_bytes(source.read_bytes())
                 Path(f"{bam}.bai").touch()
-                with gzip.open(
-                    outdir / f"{prefix}.sylph_extracted.fa.gz", "wt"
+                from pysam import BGZFile
+
+                with BGZFile(
+                    str(outdir / f"{prefix}.sylph_extracted.fa.bgz"), "wb"
                 ) as handle:
-                    handle.write(f">reference_{source.name}\nACGT\n")
+                    handle.write(f">reference_{source.name}\nACGT\n".encode())
                 if "--skip-qc" not in command:
                     (intermediate / f"{prefix}.qc.fastq.gz.json").write_text(
                         json.dumps(
@@ -156,6 +158,30 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertEqual(stream_spades.count_reads(fasta), 2)
         self.assertEqual(stream_spades.count_reads(fastq), 2)
 
+    def test_merged_fasta_is_bgzf_and_can_be_indexed(self):
+        import pysam
+
+        first = self.root / "first.fa.bgz"
+        sequence = "ACGT" * 20_000
+        with pysam.BGZFile(str(first), "wb") as handle:
+            handle.write(f">first\n{sequence.lower()}\n".encode())
+        second = self.root / "second.fa.gz"
+        with gzip.open(second, "wt") as handle:
+            handle.write(f">first duplicate\n{sequence}\n>second\nTTGG\n")
+        output = self.root / "merged.fa.bgz"
+        runner = stream_spades.StreamSpades(self.args)
+
+        runner._merge_fastas([first, second], output)
+
+        # Ordinary gzip can be read sequentially but cannot be indexed for mpileup.
+        pysam.faidx(str(output))
+        with pysam.FastaFile(str(output)) as fasta:
+            self.assertEqual(fasta.references, ["first", "second"])
+            self.assertEqual(fasta.fetch("first"), sequence)
+            self.assertEqual(fasta.fetch("second"), "TTGG")
+        self.assertFalse(output.with_name(f".{output.name}.tmp").exists())
+        self.assertFalse(output.with_name(f".{output.name}.merge.tmp").exists())
+
     def test_recursive_watch_is_enabled_by_default_and_can_be_disabled(self):
         parser = stream_spades.build_parser()
         required = [
@@ -227,7 +253,7 @@ class StreamSpadesTests(unittest.TestCase):
         cumulative = self.output_dir / "cumulative" / "stream.gottcha_species.bam"
         self.assertEqual(cumulative.read_bytes(), b"first\n")
         cumulative_fasta = (
-            self.output_dir / "cumulative" / "stream.sylph_extracted.fa.gz"
+            self.output_dir / "cumulative" / "stream.sylph_extracted.fa.bgz"
         )
         with gzip.open(cumulative_fasta, "rt") as handle:
             self.assertEqual(
@@ -250,7 +276,7 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertIn("chunk_1.fastq.gz", manifest)
         self.assertIn("chunk_2.fasta", manifest)
         self.assertIn("cumulative/stream.pathogen.full.tsv", manifest)
-        self.assertIn("cumulative/stream.sylph_extracted.fa.gz", manifest)
+        self.assertIn("cumulative/stream.sylph_extracted.fa.bgz", manifest)
         self.assertIn("raw_reads", manifest.splitlines()[0])
         self.assertEqual(resumed.state["batches"][0]["raw_reads"], 10)
         self.assertEqual(resumed.state["batches"][1]["filtered_reads"], 8)

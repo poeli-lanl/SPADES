@@ -1125,7 +1125,7 @@ const initialSniMin = SNI_DEFAULT;
 const reportFilename = REPORT_FILENAME_JSON;
 
 const levelColorMap = {
-  superkingdom: '#197278',
+  domain: '#197278',
   kingdom: '#3f7cac',
   phylum: '#d89f2a',
   class: '#6a994e',
@@ -1137,7 +1137,7 @@ const levelColorMap = {
 };
 const fallbackLevelColors = ['#197278', '#3f7cac', '#d89f2a', '#6a994e', '#d95d39', '#5e548e', '#2a9d8f', '#e76f51'];
 const rankDefinitions = [
-  { level: 'superkingdom', label: 'Domain', code: 'D' },
+  { level: 'domain', label: 'Domain', code: 'D' },
   { level: 'kingdom', label: 'Kingdom', code: 'K' },
   { level: 'phylum', label: 'Phylum', code: 'P' },
   { level: 'class', label: 'Class', code: 'C' },
@@ -2247,7 +2247,7 @@ def main():
     levels  = df['LEVEL'].dropna().astype(str).unique().tolist()
 
     taxonomic_order = [
-        'superkingdom', 'kingdom', 'phylum', 'class',
+        'domain', 'kingdom', 'phylum', 'class',
         'order', 'family', 'genus', 'species', 'strain'
     ]
     order_map = {lvl: idx for idx, lvl in enumerate(taxonomic_order)}

@@ -1896,13 +1896,19 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     node.outgoing.sort((a, b) => d3.ascending(a.target.cy, b.target.cy));
     node.incoming.sort((a, b) => d3.ascending(a.source.cy, b.source.cy));
 
-    let sourceY = node.cy - (d3.sum(node.outgoing, link => link.width) + Math.max(0, node.outgoing.length - 1) * 2) / 2;
+    const outgoingHeight = d3.sum(node.outgoing, link => link.width) + Math.max(0, node.outgoing.length - 1) * 2;
+    const incomingHeight = d3.sum(node.incoming, link => link.width) + Math.max(0, node.incoming.length - 1) * 2;
+    node.height = Math.max(outgoingHeight, incomingHeight) || node.height;
+    node.y0 = node.cy - node.height / 2;
+    node.y1 = node.cy + node.height / 2;
+
+    let sourceY = node.cy - outgoingHeight / 2;
     node.outgoing.forEach(link => {
       link.sy = sourceY + link.width / 2;
       sourceY += link.width + 2;
     });
 
-    let targetY = node.cy - (d3.sum(node.incoming, link => link.width) + Math.max(0, node.incoming.length - 1) * 2) / 2;
+    let targetY = node.cy - incomingHeight / 2;
     node.incoming.forEach(link => {
       link.ty = targetY + link.width / 2;
       targetY += link.width + 2;
@@ -2038,7 +2044,7 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
     .attr('x', -nodeWidth / 2)
     .attr('y', node => node.y0)
     .attr('width', nodeWidth)
-    .attr('height', node => Math.max(7, node.height))
+    .attr('height', node => node.height)
     .attr('rx', 2)
     .attr('fill', (node, index) => getLevelColor(node.level, 1, index))
 

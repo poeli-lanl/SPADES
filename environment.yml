@@ -16,4 +16,4 @@ dependencies:
   - pip
   - pip:
     - detaxa
-    - minify_html>=0.18
+    - minify-html

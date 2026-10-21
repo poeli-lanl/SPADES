@@ -51,7 +51,7 @@ require_dir() {
 
 info "Checking SPADES installation from $REPO_DIR"
 
-for cmd in gottcha2 fastp fastplong samtools sylph ktImportTaxonomy minimap2 bcftools; do
+for cmd in gottcha2 fastp fastplong samtools sylph ktImportTaxonomy minimap2; do
   require_command "$cmd"
 done
 

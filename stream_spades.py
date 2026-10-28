@@ -35,6 +35,8 @@ READ_SUFFIXES = (
     ".fastq.gz",
 )
 STATE_VERSION = 1
+# Keep legacy pathogen_full_* and coverage_html fields for existing state files
+# and dashboard readers while pointing them to the renamed pipeline outputs.
 MANIFEST_FIELDS = (
     "batch",
     "observed_at",
@@ -754,6 +756,7 @@ class StreamSpades:
             "--ont",
             "--ont-error-rate", str(self.args.ont_error_rate),
             "--min-depth", str(self.args.min_depth),
+            "--auto-skip-qc-ratio", str(getattr(self.args, "auto_skip_qc_ratio", "0.2")),
         ]
         if self.args.spades_data:
             command.extend(["--spades-data", str(self.args.spades_data.resolve())])
@@ -805,13 +808,15 @@ class StreamSpades:
         exact_suffixes = {
             ".tsv",
             ".full.tsv",
-            ".krona.html",
             ".pathogen.tsv",
             ".pathogen.summary.txt",
-            ".pathogen.full.tsv",
             ".pathogen.summary.tsv",
-            ".pathogen.full.html",
-            ".coverage.html",
+            ".taxonomy.tsv",
+            ".taxonomy.unfiltered.tsv",
+            ".reads_qc.html",
+            ".results_viewer.html",
+            ".results_krona.html",
+            ".coverage_browser.html",
             ".info",
         }
         for source in sorted(chunk_dir.rglob(f"{chunk_prefix}.*")):
@@ -855,17 +860,17 @@ class StreamSpades:
                 {"source": str(source.resolve()), "destination": destination_key}
             )
 
-            if source.name == f"{profile_prefix}.pathogen.full.tsv":
+            if source.name == f"{profile_prefix}.taxonomy.unfiltered.tsv":
                 latest_outputs["pathogen_full_tsv"] = destination_key
-            elif source.name == f"{profile_prefix}.pathogen.full.html":
+            elif source.name == f"{profile_prefix}.results_viewer.html":
                 latest_outputs["pathogen_full_html"] = destination_key
-            elif source.name == f"{profile_prefix}.coverage.html":
+            elif source.name == f"{profile_prefix}.coverage_browser.html":
                 latest_outputs["coverage_html"] = destination_key
             elif coverage_pattern.fullmatch(source.name):
                 latest_outputs["coverage_tsv"] = destination_key
 
         if "pathogen_full_tsv" not in latest_outputs:
-            raise RuntimeError("The staged profile is missing its pathogen full TSV")
+            raise RuntimeError("The staged profile is missing its unfiltered taxonomy TSV")
         return outputs, latest_outputs
 
     def _promote_profile_outputs(self, outputs: Sequence[Dict[str, str]]) -> None:
@@ -1063,13 +1068,13 @@ class StreamSpades:
             self._copy_chunk_profile_outputs(
                 chunk_dir, chunk_prefix, profile_dir, profile_prefix
             )
-            destination = profile_dir / f"{profile_prefix}.pathogen.full.tsv"
+            destination = profile_dir / f"{profile_prefix}.taxonomy.unfiltered.tsv"
             if not destination.exists():
                 destination.touch()
 
-        result = profile_dir / f"{profile_prefix}.pathogen.full.tsv"
+        result = profile_dir / f"{profile_prefix}.taxonomy.unfiltered.tsv"
         if not result.is_file():
-            raise RuntimeError(f"Final pathogen result was not created: {result}")
+            raise RuntimeError(f"Final unfiltered taxonomy result was not created: {result}")
         profile_outputs, latest_outputs = self._profile_output_plan(
             profile_dir, profile_prefix
         )
@@ -1197,6 +1202,13 @@ def nonnegative_float(value: str) -> float:
     return parsed
 
 
+def qc_ratio(value: str) -> str:
+    """Validate and preserve the decimal syntax accepted by run_SPADES.sh."""
+    if not re.fullmatch(r"(0|0?\.[0-9]+|1(\.0+)?)", value):
+        raise argparse.ArgumentTypeError("must be a decimal between 0 and 1")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     script_dir = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(
@@ -1278,6 +1290,13 @@ same command again to resume.
         help=(
             "Skip fastp/fastplong quality control and preprocessing; count reads "
             "directly from each input"
+        ),
+    )
+    parser.add_argument(
+        "--auto-skip-qc-ratio", type=qc_ratio, default="0.2", metavar="RATIO",
+        help=(
+            "Use original reads when QC retains less than this fraction; "
+            "passed to run_SPADES.sh (default: %(default)s)"
         ),
     )
     recursive_group = parser.add_mutually_exclusive_group()

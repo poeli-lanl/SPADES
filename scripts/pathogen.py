@@ -110,13 +110,13 @@ def annotate_pathogens(
 
         if name in name_set:
             pidx = df_pg["NAME"] == name
-            pathogenic_text = df_pg[pidx].to_html(index=False).replace('\n', '')
+            pathogenic_text = df_pg.loc[pidx, 'DISEASE'].to_string(index=False, header=False).replace('\n', '')
             is_pathogen = True
             if "human" in str(df_pg[pidx]["HOST"].values).lower():
                 is_human = True
         elif taxid in taxid_set:
             pidx = df_pg["TAXID"] == taxid
-            pathogenic_text = df_pg[pidx].to_html(index=False).replace('\n', '')
+            pathogenic_text = df_pg.loc[pidx, 'DISEASE'].to_string(index=False, header=False).replace('\n', '')
             is_pathogen = True
             if "human" in str(df_pg[pidx]["HOST"].values).lower():
                 is_human = True
@@ -126,13 +126,13 @@ def annotate_pathogens(
             parent_taxid = gt.taxid2taxidOnRank(taxid, "species")
             if parent_name in name_set:
                 pidx = df_pg["NAME"] == parent_name
-                pathogenic_text = df_pg[pidx].to_html(index=False).replace('\n', '')
+                pathogenic_text = df_pg.loc[pidx, 'DISEASE'].to_string(index=False, header=False).replace('\n', '')
                 is_pathogen = True
                 if "human" in str(df_pg[pidx]["HOST"].values).lower():
                     is_human = True
             elif parent_taxid in taxid_set:
                 pidx = df_pg["TAXID"] == parent_taxid
-                pathogenic_text = df_pg[pidx].to_html(index=False).replace('\n', '')
+                pathogenic_text = df_pg.loc[pidx, 'DISEASE'].to_string(index=False, header=False).replace('\n', '')
                 is_pathogen = True
                 if "human" in str(df_pg[pidx]["HOST"].values).lower():
                     is_human = True

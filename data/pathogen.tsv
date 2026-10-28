@@ -2000,6 +2000,7 @@ TAXID	NAME	SOURCE	LOCATION	HOST	DISEASE
 186539	Reston ebolavirus			human	Hemorrhagic fever
 12059	Rhinovirus			human	Rhinovirus infection; Common cold (Acute viral rhinopharyngitis; Acute coryza)
 11588	Rift Valley fever virus			whales; mosquito; mosquitos; human; micropteropus pusillus; roof rat; ochlerotatus taeniorhynchus; mansonia uniformis; African buffalo; cattle; Sundevall's roundleaf bat; eretmapodites quinquevittatus; mansonia africana	Hemorrhagic fever; Rift Valley fever (RVF)
+3052676	Phlebovirus riftense			whales; mosquito; mosquitos; human; micropteropus pusillus; roof rat; ochlerotatus taeniorhynchus; mansonia uniformis; African buffalo; cattle; Sundevall's roundleaf bat; eretmapodites quinquevittatus; mansonia africana	Hemorrhagic fever; Rift Valley fever (RVF)
 64285	Rio Bravo virus			human	infection
 46920	Rio Mamore virus			oligoryzomys fornesi; marsh rat; small-eared pygmy rice rat; human	Hantavirus Pulmonary Syndrome (HPS)
 64315	Rocio virus			mosquitoes; human	infection
@@ -2083,6 +2084,7 @@ TAXID	NAME	SOURCE	LOCATION	HOST	DISEASE
 38804	Yaba monkey tumor virus			Monkeys; human	infection
 10282	Yatapoxvirus			human	infection
 11089	Yellow fever virus			mosquitos; human; patas monkey; sabethes albiprivus; rodents; red howler monkey; black howler monkey	Hemorrhagic fever; Yellow fever
+3046277	Orthoflavivirus flavivirus			mosquitos; human; patas monkey; sabethes albiprivus; rodents; red howler monkey; black howler monkey	Hemorrhagic fever; Yellow fever
 1712572	Yogue virus			human; Bats	infection
 186538	Zaire ebolavirus			human; guinea pig; chimpanzees; gorilla; mountain gorilla	Hemorrhagic fever
 3052462	Zaire ebolavirus			human; guinea pig; chimpanzees; gorilla; mountain gorilla	Hemorrhagic fever
@@ -3124,11 +3126,13 @@ TAXID	NAME	SOURCE	LOCATION	HOST	DISEASE
 33758	Echovirus			human	aseptic meningitis; febrile illness; exanthem; neonatal sepsis-like disease
 3050299	Lymphocryptovirus humangamma4			human	infectious mononucleosis; Burkitt lymphoma; Hodgkin lymphoma; nasopharyngeal carcinoma and other EBV-associated disease
 3052223	Henipavirus hendraense			flying foxes (Pteropus); horses; humans	Hendra disease; severe respiratory disease; encephalitis
+3052221	Henipavirus cedarense			flying foxes (Pteropus); horses; humans	Hendra disease; severe respiratory disease; encephalitis
+3052221	Henipavirus nipahense			human; large flying fox; pig; pteropus giganteus; Canis dog; pteropus lylei	Encephalitis; respiratory disease
 3052305	Mammarenavirus flexalense			rodents; humans rarely	febrile illness; documented laboratory-acquired infection
 3052307	Mammarenavirus guanaritoense			short-tailed cane mouse (Zygodontomys brevicauda); humans	Venezuelan hemorrhagic fever
 3052480	Orthohantavirus hantanense			striped field mouse (Apodemus agrarius); humans	hemorrhagic fever with renal syndrome (HFRS)
 1980413	Hantaviridae			rodents; shrews; moles; bats; humans for zoonotic members	HFRS; hantavirus pulmonary/cardiopulmonary syndrome
-3052465	Orthoflavivirus encephalitidis / Tick-borne encephalitis virus			Ixodes ticks; small mammals; humans	tick-borne encephalitis
+3052465	Orthoflavivirus encephalitidis / Ti ck-borne encephalitis virus			Ixodes ticks; small mammals; humans	tick-borne encephalitis
 12092	Hepatovirus A			human; nonhuman primates	hepatitis A
 10407	Hepatitis B virus			human	hepatitis B; chronic hepatitis; cirrhosis; hepatocellular carcinoma
 3052230	Orthohepacivirus hominis			human	hepatitis C; cirrhosis; hepatocellular carcinoma
@@ -3149,3 +3153,473 @@ TAXID	NAME	SOURCE	LOCATION	HOST	DISEASE
 3428213	Deltaretrovirus priTlym2 / Human T-lymphotropic virus 2				
 3428212	Deltaretrovirus priTlym1 / Human T-lymphotropic virus 1			human	HTLV-1: adult T-cell leukemia/lymphoma; HAM/TSP; HTLV-2: usually asymptomatic, less clearly associated disease
 11308	Orthomyxoviridae			humans; birds; pigs; horses and other mammals	influenza; respiratory disease
+101203	Saprolegnia parasitica			human	infections
+1018	Capnocytophaga ochracea	the human oral cavity		human	Wound infection; septicaemia; abscesses; meningitis; endocarditis; Periodontitis; septicaemia
+103449	Vavraia culicis			human	infections
+108486	Corynebacterium falsenii	blood		human	Septicaemia; peritonitis; UTI; eye infection; wound infection; endocarditis; osteomyelitis; septic arthritis; meningitis; abscesses
+109760	Spizellomyces punctatus			human	infections
+109871	Batrachochytrium dendrobatidis			amphibians	cchytridiomycosis
+112098	Saprolegnia diclina			fish; human	infections
+114197	Pseudoselenomonas lactilytica	the sheep rumen		whales	Unknown
+115417	Globisporangium iwayamae			plants	pythiosis
+1176355	Hamiltosporidium tvaerminnensis			human	infections
+1194566	Aspergillus hiratsukae			human	infections
+120576	Brucella pinnipedialis	the spleen of a common seal (Phoca vitulina)			Brucellosis
+120577	Brucella ceti	brain tissue	Adriatic sea coasts	striped dolphin	Brucellosis
+1263550	Edwardsiella piscicida			birds; reptiles; fish; human	Wound infection; abscesses; gastroenteritis
+1282	Staphylococcus epidermidis	patient with intravascular catheter-associated sepsis		human	Bacteraemia; wound infection; endocarditis; catheter-related sepsis; UTI; toxic shock syndrome; food poisoning; eye infection; osteomyelitis
+1309	Streptococcus mutans	child with active dental caries	Japan	human	Dental caries
+1310165	Ralstonia pseudosolanacearum	bacterial wilt Nursery; which is used for evaluating crops resistance to Ralstonia	China: Guizhou province	plants	Bacterial wilt
+1313	Streptococcus pneumoniae	Spain	Spain	human	Pneumonia
+132132	Desulfomicrobium orale		Netherlands	human	periodontitis
+1334	Streptococcus dysgalactiae			human	Pharyngitis; bacteraemia; pyogenic infection; necrotizing infection; septic arthritis; UTI; glomerulonephritis; meningitis
+1336	Streptococcus equi	dead pig in Sichuan province; China	China: Sichuan province	human	Pharyngitis; bacteraemia; pyogenic infection; necrotizing infection; septic arthritis; UTI; glomerulonephritis; meningitis
+1346	Streptococcus iniae		China	Fish	Pharyngitis; bacteraemia; pyogenic infection; necrotizing infection; septic arthritis; UTI; glomerulonephritis; meningitis
+134821	Ureaplasma parvum		Denmark: Aarhus	human	Urinary tract infection; respritory tract infection
+1349	Streptococcus uberis	clinical bovine mastitis case		cattle	Mastitis
+1351	Enterococcus faecalis	sputum	St. Louis; Missouri	human	Bacteraemia; abscesses; endocarditis; meningitis; UTI; peritonitis; osteomyelitis; wound infection
+1382	Lancefieldella parvula	the gingival crevices of the human oral cavity		human	UTI; dental abscesses; pelvic abscesses; wound infection
+140	Borrelia hermsii	Ornithodoros hermsii tick	USA: Inyo County; California	Chipmunk; human	Lyme disease
+1402	Bacillus licheniformis			human	Food poisoning
+141	Borrelia parkeri	isolated from a burrow of Otospermophilus beecheyi	USA: Carmel Valley; CA	Ornithodoros parkeri; human	Lyme disease
+141391	Candidatus Mycoplasma haematolamae			alpaca	infections
+142	Borrelia turicatae	the soft tick Ornithodoros turicatae	United States	human; Ornithodoros turicatae	Lyme disease
+143	Borrelia anserina	blood	USA	chicken	Lyme disease
+144	Borrelia coriaceae		USA	Ornithodoros coriaceus; human	Lyme disease
+1457141	Chlamydia avium	spleen tissue from parrot	Germany: Arnsberg; North Rhine-Westphalia	Polytelis spp.; Parrot	Catarrhal enteritis; Hepatosplenomegaly
+1472345	Basilea psittacipulmonis	lung	Switzerland: Basel	budgerigar	Unknown
+1513	Clostridium tetani			human	Tetanus
+1513257	Gammapapillomavirus 12			human	Human papillomavirus (HPV) infection
+152480	Burkholderia ambifaria	cystic fibrosis patient		human	Cepacia syndrome
+152500	Burkholderia dolosa	airway from a patient with cystic fibrosis	USA	human	Necrotizing pneumonia
+155194	Bartonella bovis	blood	France	cattle	Unknown
+1561	Clostridium baratii	adult stool	USA: New York	human	Wound infection; bacteraemia; abscesses
+158	Treponema denticola	human periodontal pocket		human	Periodontitis
+159	Brachyspira hyodysenteriae			pig	Swine dysentery
+160	Treponema pallidum	patient with secondary syphilis		human	Syphilis
+161879	Corynebacterium kroppenstedtii	human sputum		human	infection
+1646	Renibacterium salmoninarum			salmonids	Unknown
+1648	Erysipelothrix rhusiopathiae	soil; food scraps and water contaminated by infected animals		human	Urticaria-like lesions; arthralgia; arthritis; endocarditis; sepsis
+1659837	Exserohilum rostratum			human	infections
+1689	Bifidobacterium dentium	dental caries		human	Dental caries
+169292	Corynebacterium aurimucosum	the human female urogenital tract		human	Septicaemia; peritonitis; UTI; eye infection; wound infection; endocarditis; osteomyelitis; septic arthritis; meningitis; abscesses
+1717	Corynebacterium diphtheriae	the pharyngeal membrane of a 72-year-old unimmunized UK female with clinical diphtheria acquired during a short Baltic cruise	United Kingdom	human	Diphtheria
+172045	Elizabethkingia miricola	hindgut	South Korea: Seoul	Reticulitermes speratus	Unknown
+1796	Mycolicibacterium senegalense	human clinical samples	France	Siamese fighting fish; human	respiratory infections
+1852	Saccharomonospora viridis	Irish peat and was originally classified as Thermomonospora viridis			Farmer's lung disease; Hypersensitivity pneumonitis
+1891726	Alphapolyomavirus quintihominis			human	Merkel cell carcinoma
+1891762	Betapolyomavirus hominis			human	BK virus infection
+1891763	Betapolyomavirus secuhominis			human	Encephalitis; Progressive multifocal leukoencephalopathy
+1891764	Betapolyomavirus tertihominis			human	Encephalitis
+1891765	Betapolyomavirus quartihominis			human	infection
+1891767	Betapolyomavirus macacae			primates; human	infection
+1916091	Lophophyton gallinae			human	infections
+1930	Streptomyces scabiei			plants	Scab disease
+1934350	Amesomyces atrobrunneus			human	keratitis
+1934379	Dichotomopilus funicola			human	Chromoblastomycosis
+1934393	Ovatospora brasiliensis			human	infections
+196	Campylobacter fetus	the blood of a human patient who was having a renal transplant	United Kingdom: England	human	Infertility; Spontaneous abortions; Septicemia; Meningitis
+1972575	Vesiculovirus piry			human	Piry fever
+1972576	Vesiculovirus chandipura			sandflies; human	Encephalitis
+1972587	Ephemerovirus kotonkan			birds; human; sheep horses	infection
+1972593	Ephemerovirus febris			human	infection
+1985254	Xanthomonas phaseoli		Brazil	Anthurium sp.	Anthurium bacterial blight
+200	Campylobacter curvus	gastrointestinal clinical isolate		human	Gastroenteritis; Periodontitis
+201	Campylobacter lari			human	Gastroenteritis; diarrhea
+2021	Thermobifida fusca			human	Shiitake mushroom dermatitis; Farmer's lung disease disease
+2039	Tropheryma whipplei	the cerebrospinal fluid a woman who had suffered severe weight loss	Germany	human	Whipple's disease
+203908	Melampsora laricis-populina			Poplar trees	leaf rust
+2047	Rothia dentocariosa			human	Endocarditis; abscesses
+2052682	Globisporangium ultimum			plants	pythiosis
+2060905	Blastomyces parvus			human	infections
+2075199	Oidiodendron cereale			human	infections
+208962	Escherichia albertii	5 Bangladeshi children with diarrhea	Bangladesh	human	diarrhea
+209446	Candidatus Mycoplasma haematominutum	infected host blood		Felis catus (cats)	infections
+2130	Ureaplasma urealyticum			human	Urinary tract infection; respritory tract infection
+2144	Spiroplasma mirum		USA: Salisbury; MD	Atrichopogon sp.	plant disease
+214856	Alistipes finegoldii	Human appendix tissue	USA	human	Appendicitis; peritonitis; abdominal abscess
+2169991	Mammarenavirus juninense			small vesper mouse; drylands vesper mouse; human; yellow pygmy rice rat	Argentine hemorrhagic fever
+2211333	Pyrenophora biseptata			plants; human	infections
+229545	Aster yellows witches'-broom phytoplasma			plants	Aster yellows phytoplasma
+236	Brucella ovis	sheep tissue	Australia	whales	Epididymitis; Placentitis
+2371	Xylella fastidiosa	pathogenic strain (8.1b)	France		Citrus variegated chlorosis
+24	Shewanella putrefaciens				Abdominal sepsis; meningitis; bacteraemia
+2426	Teredinibacter turnerae	the gills of the wood-boring mollusc (Bivalvia:Teredinidae) and may potentially be useful		shipworms; bivalves	Unknown
+249402	Cardinium endosymbiont of Encarsia pergandiella		USA: Weslaco; Texas	Encarsia pergandiella	
+251701	Pseudomonas syringae group genomosp. 3			plants	Root rot
+2567821	Dibothriocephalus nihonkaiensis			human	infections
+257758	Streptococcus pseudopneumoniae	sputum of a patient with human immunodeficiency virus (HIV) who had documented pneumonia	Canada: Ontario	human	Pneumonia
+2587404	Podospora bulbillosa			human	keratitis
+2587410	Thermothielavioides terrestris			human	infections
+263437	Wolbachia endosymbiont of Culex quinquefasciatus	the preblastoderm embryos of the Pelstrain of Culex quinquefasciatus (mosquito) mosquitoes		Mosquito; mosquito	Unknown
+2715576	Cadophora bubakii			human	infections
+272952	Hyaloperonospora arabidopsidis			human; mouse	infections
+2748958	Bandavirus dabieense			human	febrile illness
+2750923	Artyfechinostomum malayanum			human	infections
+27978	Nosema bombycis			human	infections
+28151	Serratia proteamaculans			human	Septicaemia; abscesses; burn infections; osteomyelitis
+28197	Aliarcobacter butzleri	human patient with gastroenteritis		human	Gastroenteritis; Bacteremia
+2822231	Phanerodontia chrysosporium			human	infections
+283734	Staphylococcus pseudintermedius	skin swab of a dog suffering from canine pyoderma.		dog	infection
+2844074	Deltavirus italiense			human	Hepatitis
+28447	Clavibacter michiganensis			plants	Bacterial wilt; Bacterial canker
+2846071	Rubivirus rubellae			human	Rubella
+28564	Talaromyces stipitatus			human	infections
+286802	Segniliparus rotundus	human sputum		human	respiratory infection
+2893572	Dickeya parazeae			plants	Soft rot
+29176	Neospora caninum			animals; human	infections
+292498	Isthmiophora hortensis			human	infections
+2932460	Aspergillus neotritici			human	Aspergillosis
+29438	Pseudomonas savastanoi			plants	Root rot
+29466	Veillonella parvula	ileostomy effluent evening sample obtained from a 79 year-old male ileostomist plated on Veillonella selective agar	Netherlands	human	Abscesses; bacteraemia
+29498	Vibrio tubiashii	Larvae from hard clams (Mercenaria mercenaria)	USA: Long Island Sound; Connecticut	northern quahog	Unknown
+2951618	Lyssavirus hamburg			cats; human; bats	Fatal encephalitis
+2951619	Lyssavirus helsinki			Wasserfledermaus; human; myotis dasycneme	Fatal encephalitis
+29518	Borreliella afzelii	skin	Austria	human	Lyme disease
+29519	Borreliella garinii	tick	China: Inner Mongolia	taiga tick; human	Lyme disease
+29520	Borrelia crocidurae	blood of a laboratory mouse	Mali	Ornithodoros sonrai; human	Lyme disease
+2955291	Alphainfluenzavirus influenzae			bufflehead; great white egret; ducks; emu; Pacific golden plover; slaty-backed gull; turnstone; larus ichthyaetus; tree sparrow; silver-eared mesia; Canada goose; helmeted guineafowl; American white pelican; least sandpiper; mink; Pacific-slope flycatcher; House crow; western grebe; Fischreiher; whistling swan; giant anteater; common whooper; watercock; starling; blue-headed parrot; larus novaehollandiae; red knot; ungulates; Australian shelduck; corvus monedula; robin; alder flycatcher; yellow-breasted chat; golden pheasant; Guillemot; Pekin robin; red-necked stint; alopochen aegyptiacus; semi-palmated sandpiper; glaucous-winged gull; common eider; Japanese quail; white-backed munia; rock dove; cheetah; ring-necked duck; veery; common goldeneye; larus melanocephalus; Haussperling; muskrat; sooty tern; hooded vulture; sturnus sericeus; glaucous gull; great crested grebe; carnivores; western tanager; Bewick's wren; larus atricilla; hermit thrush; redhead; wild turkey; tiger; mute swan; chukar partridge; mew gull; double-crested cormorant; barnacle goose; tufted duck; cats; ferret; ring-bill gull; White stork; kelp gull; Canis dog; mouse; white-faced tree duck; human; mountain hawk-eagle; pig; seiurus noveboracensis; oporornis tolmiei; puffinus pacificus; dunlin; cedar waxwing; white-winged scoter; European polecat; musky duck; chicken; kalij pheasant; song sparrow; great black-backed gull; little grebe; fox sparrow; bald eagle; eagles; ostrich; rook; pochard; common buzzard; western wood-pewee; black-legged kittiwake; Swainson's thrush; golden-crowned kinglet; california gull; geese; common gull; yellow-legged gull; cormorant; sanderling; black kite; rosy-billed pochard; chlidonias hybridus; harbor seal; thick-billed guillemot; Silbermoewe; calidris acuminata; long-tailed shrike; neovison vison; inachis io; Flussseeschwalbe; larus brunnicephalus; birds; piaya minuta; Elster; Mongolian gull; ruddy shelduck; pig; Japanese white-eye; larus ridibundus; Zwergsaeger	influenza
+2955465	Betainfluenzavirus influenzae			cats; human; Canis dog	influenza
+2955935	Gammainfluenzavirus influenzae			carnivores; human; Canis dog	influenza
+2956252	Orthopicobirnavirus hominis			human	Gastroenteritis
+29575	Taylorella equigenitalis	stallion; pre-export checks	United Arab Emirates	ungulates	CEM;
+2976812	Aerococcus sp. Group 1	Human clinical samples		human	bacteremia; UTI
+2978683	Burkholderia orbicola	the blood of a patient with CF		human	Necrotizing pneumonia
+29879	Neurospora discreta			plants	infections
+301	Ectopseudomonas oleovorans			rammeacris kiangsu; house fly; human	Bacteraemia; UTI; wound infection; abscesses; septic arthritis; conjunctivitis; endocarditis; meningitis; otitis
+3025782	Gillisella ampelina			various plants	Crown gall
+3047370	Orthoflavivirus apoiense			human	infection
+3047375	Orthoflavivirus aroaense			human	infection
+3047385	Orthoflavivirus bagazaense			birds; human	Avian meningoencephalomyelitis
+3047395	Orthoflavivirus banziense			human	infection
+3047790	Orthoflavivirus dakarense			human	infection
+3047817	Orthoflavivirus edgehillense			human	infection
+3048148	Metapneumovirus hominis			chimpanzees; human	Human metapneumovirus infection
+3048158	Orthoflavivirus japonicum			birds; horses; mosquitoes; human	Encephalitis
+3048168	Orthoflavivirus kokoberaorum			human	infection
+3048169	Orthoflavivirus koutangoense			human	infection
+3048170	Orthoflavivirus kyasanurense			human	Alkhurma Hemorrhagic Fever
+3048184	Orthoflavivirus loupingi			whales; taiga tick; human	Encephalitis
+3048215	Orthoflavivirus murrayense			human; mosquito; ungulates	Encephalitis
+3048225	Orthoflavivirus ntayaense			human	infection
+3048233	Orthoflavivirus omskense			dermacentor reticulatus; muskrat; androlaelaps casalis; human	Hemorrhagic fever
+3048267	Orthoflavivirus phnompenhense			human	infection
+3048287	Orthoflavivirus powassanense			shoulder tick; human; longhorned tick; dermacentor silvarum; ixodes cookei	infection
+3048300	Orthoflavivirus bravoense			human	infection
+3048305	Orthoflavivirus royalense			human	infection
+3048314	Orthoflavivirus saumarezense			human	infection
+3048316	Orthoflavivirus sepikense			human	infection
+3048380	Gammatorquevirus homidi1			human	infection
+3048387	Gammatorquevirus homidi2			human	infection
+3048395	Betatorquevirus homini1			human	infection
+3048403	Betatorquevirus homini5			human	infection
+3048404	Betatorquevirus homini6			human	infection
+3048406	Betatorquevirus homini8			human	infection
+3048414	Alphatorquevirus homin10			human	infection
+3048433	Alphatorquevirus homin9			human	infection
+3048439	Orthoflavivirus tyuleniyense			human	infection
+3048443	Orthoflavivirus usutuense			mosquito; Kohlmeise; human; Eurasian blackbird	infection
+3048447	Orthoflavivirus wesselsbronense			whales; mosquitos; ungulates; human; mansonia uniformis; cattle; Cape short-eared gerbil	infection
+3048448	Orthoflavivirus nilense			birds; horses; mosquitoes; human	Encephalitis
+3049952	Respirovirus laryngotracheitidis			human; mouse	Respiratory
+3049953	Respirovirus pneumoniae			guinea pig; human	Respiratory
+3049954	Orthopneumovirus hominis			human	Respiratory
+3050295	Cytomegalovirus humanbeta5			human	infection
+3050298	Roseolovirus humanbeta7			human	Skin lesions; Exanthem subitum (Sixth disease)
+3050300	Rhadinovirus humangamma8			human; chimpanzees; primates; gorilla; mandrill	Skin lymphoma
+3050348	Simplexvirus saimiriinealpha1			human	infection
+3050355	Varicellovirus suidalpha1			whales; human; cats; pig; cattle; carnivores; Canis dog; northern raccoon	pseudorabies
+3051375	Orthoavulavirus javaense			eagles; great horned owl; rough-legged hawk; ostrich; greater flamingo; ducks; emu; pochard; little tern; turnstone; mourning dove; budgerigar; human; geese; Canada goose; pig; Japanese quail; least sandpiper; dunlin; rock dove; blue peafowl; sanderling; musky duck; chicken; rallus aquaticus; long-eared owl; Eurasian blackbird; inachis io; red knot; bonasa bonasia; birds; Sacred ibis; great spotted woodpecker; wild turkey; larus ridibundus; common pheasant; bald eagle	infection
+3051989	Bandavirus bhanjanagarense			rhipicephalus decoloratus; human	infection
+3051992	Bandavirus heartlandense			human	Heartland virus disease
+3052189	Erythroparvovirus primate1			human	Fifth disease
+3052299	Mammarenavirus brazilense		Brazil	human	Brazilian Hemorrhagic Fever
+3052300	Mammarenavirus caliense			guinea pig; rat; human	Hemorrhagic fever
+3052302	Mammarenavirus chapareense			human	Hemorrhagic fever
+3052303	Mammarenavirus choriomeningitidis			human; guinea pig; rodents; callithrix pygmaea; mouse; Goeldi's monkey	Lymphocytic choriomeningitis; encephalitis
+3052310	Mammarenavirus lassaense			Natal multimammate rat; human	Hemorrhagic fever; Lassa fever
+3052314	Mammarenavirus lujoense			rodents; human	Hemorrhagic fever
+3052317	Mammarenavirus machupoense			rodents; large vesper mouse; human	Encephalitis
+3052331	Mammarenavirus whitewaterense			human	nonspecific febrile symptoms including fever; headache; myalgias
+3052345	Morbillivirus hominis			primates; human	Measles; fever; rash
+3052380	Orthobunyavirus buffaloense			human	infection
+3052381	Orthobunyavirus bunyamweraense			mosquito; mosquitos; ungulates; human; ochlerotatus taeniorhynchus; mansonia uniformis; pig; cattle; Culex pseudovishnui (mosquito)	Encephalitis
+3052384	Orthobunyavirus bwambaense			mosquitos; human	infection
+3052387	Orthobunyavirus caraparuense			cebus apella; mosquito; human	infection
+3052389	Orthobunyavirus catuense			human	infection
+3052390	Orthobunyavirus encephalitidis			ochlerotatus dorsalis; mosquito; mosquitos; human; ungulates; ochlerotatus taeniorhynchus; ochlerotatus cataphylla; ochlerotatus triseriatus; ochlerotatus communis; cattle; snowshoe hare; ochlerotatus squamiger; ochlerotatus canadensis; ochlerotatus caspius; ochlerotatus abserratus; ochlerotatus cantans; ochlerotatus excrucians	Encephalitis
+3052394	Orthobunyavirus ganganense			human	infection
+3052396	Orthobunyavirus guamaense		Central and South America	human	infection
+3052397	Orthobunyavirus guaroaense			human	infection
+3052401	Orthobunyavirus insulae			rodents; human	infection
+3052402	Orthobunyavirus jamestownense			human	infection
+3052407	Orthobunyavirus khatangaense			rodents; mosquitoes; human	Encephalitis
+3052409	Orthobunyavirus lacrosseense			tamias; mosquitoes; deer; human	Encephalitis
+3052413	Orthobunyavirus madridense			mosquitoes; human	infection
+3052418	Orthobunyavirus maritubaense			cebus apella; South American water rat; human	febrile illness
+3052426	Orthobunyavirus nyandoense			human	febrile illness
+3052428	Orthobunyavirus oribocaense			cebus apella; mosquito; human	infection
+3052429	Orthobunyavirus oropoucheense			pale-throated three-toed sloth; mosquito; human	Fever; joint pain
+3052440	Orthobunyavirus shuniense			horse; human	nervous system disease
+3052444	Orthobunyavirus tacaiumaense			mosquitoes; human	infection
+3052445	Orthobunyavirus tahynaense			human	fever; headache; malaise; conjunctivitis; pharyngitis; nausea
+3052446	Orthobunyavirus tataguineense			human	infection
+3052456	Orthobunyavirus wyeomyiae			mosquitoes; human	febrile illness
+3052459	Orthoebolavirus restonense			human	Hemorrhagic fever
+3052460	Orthoebolavirus sudanense			human	Ebola hemorrhagic fever
+3052461	Orthoebolavirus taiense			human	Ebola hemorrhagic fever
+3052466	Orthoflavivirus ilheusense			human	infection
+3052467	Orthoflavivirus kedougouense			human	infection
+3052468	Orthoflavivirus louisense			scale-backed antbird; mouse; drylands vesper mouse; mourning dove; mosquitos; human; common grackle; Guianan warbling antbird; conopophaga aurita; myiobius barbatus; Haussperling; cebus apella; chicken; Buff-throated saltator; southern opossum; northern flicker; ochlerotatus scapularis; myrmotherula hauxwelli; birds; haemagogus equinus; psorophora ferox; northern raccoon; ruddy quail-dove	Encephalitis
+3052470	Orthohantavirus bayoui			marsh rice rat; human	infection
+3052477	Orthohantavirus dobravaense			human; Eurasian shrew; bank vole; rodents; european rodent; Tamarisk jird; mouse	pulmonary syndrome; hemorrrhagic fever with renal syndrome
+3052490	Orthohantavirus nigrorivense			human	infection
+3052493	Orthohantavirus puumalaense			royal vole; Gray red-backed vole; human; eothenomys regulus; bank vole; rodents; Tamarisk jird	Hemorrhagic fever
+3052498	Orthohantavirus seoulense			human; roof rat; cats; rattus flavipectus; greater long-tailed hamster; microtus fortis; Chinese striped hamster; mouse; rats; Tanezumi rat	Hemorrhagic fever
+3052499	Orthohantavirus sinnombreense			rodents; human; mouse	Hemorrhagic fever
+3052505	Orthomarburgvirus marburgense			Sundevall's roundleaf bat; Egyptian rousette; human; mouse	Hemorrhagic fever
+3052510	Orthonairovirus bushkeyense			human	infection
+3052511	Orthonairovirus chimense			human	infection
+3052514	Orthonairovirus dugbeense			tropical bont tick; amblyomma lepidum; whales; human; amblyomma gemma; cattle; rhipicephalus pulchellus	Thrombocytopaenia
+3052521	Orthonairovirus issykkulense			human	infection
+3052523	Orthonairovirus kasokeroense			human; bats	infection
+3052538	Orthonairovirus tomdiense			human	infection
+3052541	Orthonairovirus yogueense			human; Bats	infection
+3052556	Orthorubulavirus hominis			human	Respiratory
+3052557	Orthorubulavirus laryngotracheitidis			human	Respiratory
+3052558	Orthorubulavirus mammalis			carnivores; human; Canis dog	respiratory illness
+3052560	Orthorubulavirus parotitidis			Kenya baboon; baboon; western baboon; human	Mumps
+3052599	Pararubulavirus menangleense			pig; human	fever; chills; rigors; drenching sweats; malaise; headache; red spotty rash
+3052608	Pegivirus hominis			chimpanzees; human	infection
+3052640	Phlebovirus candiruense			human	infection
+3052641	Phlebovirus chagresense			human	infection
+3052666	Phlebovirus napoliense			phlebotomus longicuspis; phlebotomus perniciosus; sergentomyia minuta; human; phlebotomus papatasi; phlebotomus perfiliewi; typical striped grass mouse	Hemorrhagic fever
+3052679	Phlebovirus salehabadense			human	infection
+3052681	Phlebovirus siciliaense			phlebotomus longicuspis; phlebotomus perniciosus; sergentomyia minuta; human; phlebotomus papatasi; phlebotomus ariasi	Hemorrhagic fever
+3052684	Phlebovirus toroense			sandflies; human	Hemorrhagic fever
+3052686	Phlebovirus toscanaense			mosquitoes; human	Hemorrhagic fever
+3052811	Uukuvirus uukuniemiense			ticks; human	Hemorrhagic fever
+3117462	Borrelia nietonii	human blood	USA	human; Ornithodoros hermsi	Lyme disease
+315358	Spiroplasma eriocheiris		China	Chinese hairy crab	Unknown
+315405	Streptococcus gallolyticus	patient		human	Endocarditis; CAPD peritonitis
+317	Pseudomonas syringae		New Zealand: Te Puke	plants	Apical necrosis of mango
+318829	Pyricularia oryzae			rice	rice blast
+3240447	Seadornavirus bannaense			mosquitoes; pig; cattle; human	Encephalitis
+3241402	Mastadenovirus adami			human	Respiratory
+3241406	Mastadenovirus blackbeardi			gorilla; human	Respiratory
+3241411	Mastadenovirus caesari			human; chimpanzees; cats; succory; cultivated lettuce; spinach	Respiratory
+3241420	Mastadenovirus dominans			human	Respiratory
+3241425	Mastadenovirus exoticum			human	Respiratory
+3241426	Mastadenovirus faecale			spinach; human	Respiratory
+328814	Alistipes shahii			human	infections
+33039	Mediterraneibacter torques			human	Unknown
+33047	Bartonella vinsonii	host blood	USA	dog	Unknown
+33085	Entamoeba invadens			reptiles	infections
+333766	Alphapapillomavirus 13			human	Human papillomavirus (HPV) infection
+336810	Candidatus Karelsulcia muelleri			aster leafhopper	Aster yellow
+337043	Alphapapillomavirus 4			human	Skin warts
+33990	Rickettsia bellii	triturated (powdered) pool of unfed adult Dermacentor variabilis ticks collected from vegetation near Fayetteville; Arkansas; USA;	near Fayetteville Arkansas USA	American dog tick; Tick	Unknown
+34020	Candidatus Liberibacter africanus			Psyllid	Citrus greening disease Huanglongbing
+34021	Candidatus Liberibacter asiaticus			Psyllid	Citrus greening disease Huanglongbing
+3407641	Hepatovirus ahepa			human	Hepatitis
+34085	Riemerella anatipestifer	sick duck	China: Sichuan	poultry	Polyserositis; Septcemia
+34105	Streptobacillus moniliformis	case of rat bite fever		human	Rat bite fever
+342113	Burkholderia oklahomensis	Pelvic Wound	USA: Oklahoma	human	wound infection
+3422298	Orthoreovirus mammalis			human; Temminck's mouse; masked palm civet; pig; cattle; European free-tailed bat; carnivores; Desert pipistrelle; Canis dog; lesser horseshoe bat; particolored bat	mild upper respiratory tract disease; gastroenteritis; biliary atresia
+3426294	Alphavirus barmah			marsupials; mosquitoes; human	Fever; joint pain
+3426295	Alphavirus bebaru			human	infection
+3426303	Alphavirus getah			horse; human; bats	infection; fever
+3426306	Alphavirus mayaro			mosquitoes; human	Fever; joint pain
+3426309	Alphavirus mucambo			human	infection
+3426312	Alphavirus onyong			human	infection
+3426314	Alphavirus rossriver			human; ungulates; Australian brown flycatcher; magpie-lark; poephila personata; mosquitoes; macropus agilis	Fever; joint pain
+3426317	Alphavirus semliki			mosquitos; hedgehog; human; birds; mosquitoes	Fever; joint pain
+3426318	Alphavirus sindbis			human	arthritis; rash; fever
+3426322	Alphavirus venezuelan			human	infection
+3426323	Alphavirus western			ochlerotatus dorsalis; mosquito; Texas gopher tortoise; human; ungulates; white-crowned sparrow; sciurus griseus	Fever; joint pain
+3426399	Aphthovirus burrowsi			horses; human	infection
+3426401	Aphthovirus vesiculae			whales; impala; human; desert warthog; pig; cattle; red river hog; African buffalo; pig	infection
+3427295	Betaretrovirus murmamtum			human; mouse	infection
+3427730	Cardiovirus rueckerti			human; chimpanzees; pig; pig; mouse; rats; red squirrel; Fat dormouse	Encephalitis
+3428067	Coltivirus ixodis			human	infection
+3428094	Cosavirus asiani			human	gastroenteritis
+3428214	Deltaretrovirus priTlym3			human	Leukemia
+3428500	Enterovirus alphacoxsackie			human	Meningitis; myocarditi;; paralysis; Hand; foot and mouth disease (HFMD)
+3428501	Enterovirus alpharhino			human	Respiratory
+3428502	Enterovirus betacoxsackie			pig; human	common cold; hand; foot and mouth disease; acute hemorrhagic conjunctivitis; aseptic meningitis; myocarditis; severe neonatal sepsis-like disease; acute flaccid paralysis
+3428503	Enterovirus betarhino			human	Respiratory
+3428504	Enterovirus cerhino			human	Respiratory
+3428505	Enterovirus coxsackiepol			chimpanzees; gorilla; mandrill; human	infection
+3428506	Enterovirus deconjuncti			human	common cold; hand; foot and mouth disease; acute hemorrhagic conjunctivitis; aseptic meningitis; myocarditis; severe neonatal sepsis-like disease; acute flaccid paralysis
+3428509	Enterovirus geswini			human	infection
+3428953	Gammaretrovirus gibleu			human; Humboldt's woolly monkey	infection
+3428959	Gammaretrovirus murleu			whales; grey seal; human; Eurasian badger; Algerian mouse; pig; cattle; mouse; rabbits; rats; Brazilian free-tailed bat; neovison vison; silver fox	infection
+3428960	Gammaretrovirus porConc			Celebes wild boar; human; pig; Java warty pig; warthog; bearded pig	Encephalitis
+3430629	Mamastrovirus hominis			human	Gastroenteritis
+3430774	Megalocytivirus pagrus1			spotted knifejaw; yellowfin seabream; colisa lalia; paradise fish; hard-tail jack; greater amberjack; trichogaster leerii; estuary rock cod; largemouth blackbass; human; olive flounder; turbot; Queensland grouper; Chinese perch; Malabar grouper; five-ray yellowtail; croceine croaker; North Pacific bluefin tuna; striped knifejaw; suzuki; pterapogon kauderni; Formosan grey mullet; brown-marbled grouper; red tail; barramundi	infection
+3430922	Molluscipoxvirus molluscum			human; ungulates	Skin lesions
+3431196	Norovirus norwalkense			human	Gastroenteritis
+3431241	Orbivirus changuinolaense			human	infection
+3431248	Orbivirus lebomboense			human	infection
+3431249	Orbivirus magninsulae			human	infection
+3431250	Orbivirus orungoense			human	infection
+3431256	Orbivirus wadmedaniense			ticks; human	infection
+3431295	Orthohantavirus mamorense			small vesper mouse; human; White-throated Akodont	Hantavirus Pulmonary Syndrome (HPS)
+3431302	Orthohepadnavirus hominoidei			human	Hepatitis
+3431388	Parapoxvirus bovinestomatitis			cattle; human	infection
+3431389	Parapoxvirus orf			whales; human; caribou; cattle; Japanese serow; takin	Skin lesions
+3431390	Parapoxvirus pseudocowpox			whales; caribou; cattle; human	skin lesions
+3431392	Parapoxvirus sealpox			human	Sealpox
+3431395	Parechovirus ahumpari			human	gastrointestinal and respiratory diseases
+3431480	Orthopoxvirus camelpox			whales; human	infection
+3431481	Orthopoxvirus cowpox			cats; mouse; Canis dog; red panda; human; bank vole; white ear-tufted marmoset; rodents; cheetah; rats; African savannah elephant; cattle; Eurasian lynx; carnivores; social vole; llama; field vole; ungulates; european rodent	infection
+3431483	Orthopoxvirus monkeypox			human; chimpanzees; white ear-tufted marmoset	Skin lesions
+3431487	Orthopoxvirus variola			human	Smallpox (Variola)
+3432189	Rosavirus acaliforni			human	infection
+3432193	Rotavirus alphagastroenteritidis			whales; cats; Australian sugar glider; primates; mouse; Canis dog; giraffe; human; pig; guanaco; chicken; giant panda; cattle; carnivores; rabbits; vicuna; ungulates; sable antelope; pig; wild turkey; red squirrel	Gastroenteritis
+3432195	Rotavirus betagastroenteritidis			whales; human; roof rat; pig; cattle	Gastroenteritis
+3432196	Rotavirus deltagastroenteritidis			human	Gastroenteritis
+3432202	Rotavirus phigastroenteritidis			human	Gastroenteritis
+3432203	Rotavirus tritogastroenteritidis			ferret; pig; cattle; human	Gastroenteritis
+3432241	Salivirus aklasse			human	Gastroenteritis
+3432266	Sapovirus sapporoense			pig; human	Gastroenteritis
+3433198	Vesivirus exanthema			human; California sealion; pig; cattle; northern fur seal; pig; striped skunk	Foot-and-Mouth Disease (FMD) and Swine Vesicular Disease (SVD)
+3433538	Yatapoxvirus tanapox			human	infection
+3433539	Yatapoxvirus yabapox			Monkeys; human	infection
+3433633	Betacoronavirus cameli			Tomb bat; human	Respiratory
+3433756	Alphacoronavirus chicagoense			human	Respiratory
+3433757	Betacoronavirus gravedinis			whales; Himalayan tahr; ungulates; human; waterbuck; lama pacos; nyala; pig; cattle; white-tailed deer; Sitatunga; Sambar deer; carnivores; Canis dog; giraffe	infection
+3433758	Betacoronavirus hongkongense			human	Respiratory
+3433809	Alphacoronavirus amsterdamense			human	Respiratory
+3434972	Streptococcus mobilis	gastric erosive ulcers		human	ulcers
+346	Xanthomonas citri				Citrus canker
+347	Xanthomonas oryzae				Bacterial blight
+35788	Rickettsia africae	cattle tick; Amblyomma variegatum; collected	Ethiopia	tropical bont tick; Tick	African tick bite fever
+35791	Rickettsia massiliae	the tick Rhipicephalus turanicus collected from horses	Le Sambuc; Bouches-du Rhone; France	Rhipicephalus turanicus	spotted fever
+35792	Rickettsia parkeri		Brazil	Tick; Amblyomma triste	Maculatum infection
+35794	Rickettsia slovaca	ticks throughout Europe		Dermacentor sp.; Tick	Rickettsial spotted fever; tick typhus; tick-bite fever; rickettsialpox
+35795	Ehrlichia muris	spleen of wild mouse	Japan: Asuke Town; Aichi Prefecture	mouse	Ehrlichiosis
+35814	Bordetella holmesii	blood	USA	human	bacteremia; endocarditis; respiratory disease
+36331	Globisporangium irregulare			plants	pythiosis
+37929	Glutamicibacter nicotianae	Human clinical sample		human	skin infection
+38289	Corynebacterium jeikeium	the axilla of a bone marrow transplant patient		human	Nosocomial infections
+38305	Corynebacterium vitaeruminis	cow rumen		cattle	Unknown
+38323	Bartonella henselae	human blood	Houston Texas	human	Bacillary angiomatosis; Cat scratch fever
+388640	Bartonella australis	host blood	Australia	Eastern grey kangaroo; eastern gray kangaroo	Unknown
+40127	Neurospora tetrasperma			plants	infections
+40269	Aliivibrio salmonicida			Salmonid fish	Hitra disease
+40302	Vairimorpha ceranae			honey bee	infections
+40559	Botrytis cinerea			plants	gray mold disease
+40834	Borrelia duttonii	2-year-old girl with tick-borne relapsing fever	Tanzania	human	Lyme disease
+412467	Entamoeba nuttalli			Macaques; Baboon; Chimpanzees	infections
+42817	Corynebacterium argentoratense	throat culture		human	Septicaemia; peritonitis; UTI; eye infection; wound infection; endocarditis; osteomyelitis; septic arthritis; meningitis; abscesses
+42862	Rickettsia felis		Brazil	human	Rocky mountain spotted fever
+43771	Corynebacterium urealyticum	case of cystitis	Germany	human	Urinary tract infection
+44449	Borrelia recurrentis	adult patient with louse-borne relapsing fever	Ethiopia	human	Lyme disease
+446660	Adlercreutzia equolifaciens	human faeces		human	Unknown
+456327	Xanthomonas euvesicatoria			plants; human	Bacterial spot; Bacteraemia
+46541	Thermosipho melanesiensis	the gills of Bathymodiolus brevior; a deep-seamussel		Bivalve; Bathymodiolus brevior	Unknown
+47735	Bibersteinia trehalosi	mucus	USA: Kansas	cattle	bovine respiratory infections
+4784	Phytophthora capsici			Cucurbits	infections
+4785	Phytophthora cinnamomi			plants	root rot; dieback
+4787	Phytophthora infestans			potato plants	potato blight
+4792	Phytophthora nicotianae			onion plants	phytophthora neck and bulb rot
+4837	Phycomyces blakesleeanus			human	infections
+48492	Fusarium concolor			human	infections
+4896	Schizosaccharomyces pombe			plants	infections
+4897	Schizosaccharomyces japonicus			plants	infections
+4899	Schizosaccharomyces octosporus			plants	infections
+492670	Bacillus velezensis	cucumber		cucumber	cucumber wilt disease
+51229	Wigglesworthia glossinidia			tsetse fly; Tsetse fly	Unknown
+51453	Trichoderma reesei			human	infections
+5147	Sordaria macrospora			human	infections
+51541	Spraguea lophii			fish	infections
+5180	Sclerotinia sclerotiorum			human	infections
+521	Bordetella avium			Poultry	Bordetellosis
+5217	Tremella mesenterica			human	infections
+52584	Brachyspira pilosicoli	pig	Australia	pig	Intestinal spirochetosis
+5270	Mycosarcoma maydis			corn	corn smut
+5297	Puccinia graminis			cereal crops	rust disease
+53435	Treponema paraluiscuniculi			rabbits; human	Rabbit syphilis
+536	Chromobacterium violaceum	freshwater	Malaya	human	skin lesions; sepsis; liver abscesses; diarrhea; Septicemia
+54736	Salmonella bongori			reptiles	Gastroenteritis; enteric fever; osteomyelitis
+5518	Fusarium graminearum			plants	infections
+552	Erwinia amylovora			plants	Fire blight disease
+556	Dickeya chrysanthemi			plants	Soft rot
+56454	Xanthomonas hortorum				Bacterial blight
+5692	Trypanosoma congolense			animals; human	infections
+5699	Trypanosoma vivax			animals; human	infections
+575200	Corynebacterium maris	coral mucus		Coral; Fungia granulosa	Unknown
+57975	Burkholderia thailandensis	pleural wound	USA: LA	human	infections
+580165	Bacillus cytotoxicus			human	Food poisoning
+5802	Eimeria tenella			chicken	infections
+58138	Desulfofarcimen acetoxidans	pig waste		pig	Unknown
+5827	Plasmodium cynomolgi			primates; human	malaria
+5861	Plasmodium yoelii			rodents	malaria
+586133	Nematocida parisii			human	infections
+5874	Theileria annulata			cattle; Ticks	infections
+5875	Theileria parva			cattle; Rhipicephalus appendiculatus	infections
+60552	Burkholderia vietnamiensis			human	Necrotizing pneumonia
+60920	Sanguibacter keddieii	bovine blood		cattle	Unknown
+62088	Borreliella valaisiana	female Ixodes persulcatus tick	Russia: Tomsk	taiga tick; human	Lyme disease
+622	Shigella dysenteriae	epidemic in China in the 1950s	Guatemala	human	Dysentery
+623	Shigella flexneri	patient	China: Beijing	human	Dysentery
+628	Xenorhabdus nematophila				Bacteremia
+633	Yersinia pseudotuberculosis	the stools of a patient presenting with scarlet-like fever	Primorski region of the former USSR	human	Enterocolitis; soft tissue infections; mesenteric lymphadenitis
+645	Aeromonas salmonicida	brown trout with furunculosis		river trout	Furunculosis
+64897	Borreliella bissettiae	western blackleg Ixodes pacificus;	USA: California	human; California black legged tick	Lyme disease
+65357	Albugo candida			plants	white rust; white blister disease
+653948	Albugo laibachii			plants	white rust; white blister disease
+65487	Nannizzia persicolor			field mice; voles; dogs; human	infections
+664662	Borreliella bavariensis	the cerebrospinal fluid of a patient with neuroborreliosis	Germany	human	Lyme disease
+67680	Anncaliia algerae			mosquitos; human	infections
+67780	Edwardsiella ictaluri			channel catfish	Wound infection; abscesses; gastroenteritis
+67825	Citrobacter rodentium			mouse	Murine colonic hyperplasia
+680	Vibrio campbellii			human	Vibriosis
+68886	Theileria orientalis			cattle; Ticks	infections
+69223	Musicola paradisiaca			plants	Soft rot
+693153	Vibrio atlanticus				Vibriosis
+70536	Edhazardia aedis			human	infections
+715	Actinobacillus pleuropneumoniae	pig lung		pig	Fibrinous pleuropneumonia; Necrotizing pleuropneumonia
+716	Actinobacillus suis	pig with septicemia		pig	Septicemia
+718	Actinobacillus equuli			pig; ungulates	sleepy foal disease
+72149	Kobuvirus aichi			human	gastroenteritis
+72558	Sporisorium reilianum			human	infections
+76517	Campylobacter hominis	the feces of a healthy human		human	Endocarditis; meningitis
+769	Anaplasma centrale			human	Anaplasmosis
+770	Anaplasma marginale	blood	Florida	cattle	Unknown
+774	Bartonella bacilliformis			human	Carrion's disease
+777	Coxiella burnetii	case of endocarditis and does not carry a plasmid	USA: Utah	human	Q fever
+779	Ehrlichia ruminantium	the Caribbean island of Guadeloupe		tick	Ehrlichiosis
+781	Rickettsia conorii	human	South Africa	human	Rocky mountain spotted fever
+782	Rickettsia prowazekii	typhus patient	Poland: Warsaw	human	Rickettsial spotted fever; tick typhus; tick-bite fever; rickettsialpox
+783	Rickettsia rickettsii	from a patient with Rocky Mountain spotted fever		human	Rocky mountain spotted fever
+785	Rickettsia typhi	Bandicoot rats (Bandicota sp	Myanmar	Bandicoot rat; Bandicota sp	Rickettsial spotted fever; tick typhus; tick-bite fever; rickettsialpox
+786	Rickettsia akari	mites	Hartford	Mite	Rickettsialpox
+788	Rickettsia canadensis	ticks	Canada	Haemaphysalis leporispalustris; Tick	Epidemic typhus
+803	Bartonella quintana	rhesus macaque	Toulouse France	primates; Rhesus monkey	Unknown
+80849	Wolbachia endosymbiont of Brugia malayi			agent of lymphatic filariasis; Nematode	Unknown
+80869	Paracidovorax citrulli	fruit		cucumber family	Bacterial fruit blotch
+817	Bacteroides fragilis	patient with septicemia	Japan	human	commensal; sepsis; abscess or surgical infections
+831	Butyrivibrio fibrisolvens			human	infections
+83554	Chlamydia psittaci	pig from Saxony-Anhalt; Germany	Germany: Saxony-Anhalt	pig	Psittacosis
+83555	Chlamydia abortus	enzootic (affecting animals		whales	Pharyngitis; Bronchitis; Pneumonitis
+83556	Chlamydia felis	cat with conjunctivitis		Felis catus (cats)	Pharyngitis; Bronchitis; Pneumonitis
+83557	Chlamydia caviae	guinea pig with conjunctivitis		guinea pig	conjunctivitis; Pharyngitis; Bronchitis; Pneumonitis
+83560	Chlamydia muridarum			human	Pharyngitis; Bronchitis; Pneumonitis
+84023	Clostridium autoethanogenum	Rabbit feces	Belgium	Oryctolagus cuniculus (rabbits)	Unknown
+84030	Lacrimispora saccharolytica			human	Botulism
+84112	Eggerthella lenta	cases of bacteremia		human	Bacteremia
+84163	Cryptobacterium curtum	periodontal pocket of an adult human with periodontal disease		human	Dental caries; Peridontitis
+84378	Brachyspira murdochii	pig		pig	Swine dysentery
+84590	Taylorella asinigenitalis	3 year old Ardennes stallion; pre-breeding tests	Sweden	ungulates	CEM;
+85701	Bartonella tribocorum	the blood of wild rats		Rat	Bartonellosis
+85991	Chlamydia pecorum	the urogenital tract of a wide female koalas suffering from a urogenital tract infection	Australia: Queensland	koala; whales; cattle	respiratory infections
+876	Desulfovibrio desulfuricans	the rumen of a sheep		whales	Bacteraemia; liver abscess
+87883	Burkholderia multivorans	Human Clinical Sample (Cystis Fibrosis Patient)	Belgium: Brussela	human	Cepacia syndrome
+884684	Mageeibacillus indolicus			human	infection
+899	Desulfomicrobium baculatum	manganese ore		human	periodontitis
+9	Buchnera aphidicola	whole body	USA: Ithaca; NY	soybean aphid	Unknown
+936053	Rhizopus delemar			pig; human	infections
+944	Ehrlichia canis	2-year-old male dog	North Carolina; USA	dog	Ehrlichiosis
+945	Ehrlichia chaffeensis	patient	USA: Arkansas	human	Human monocytic ehrlichiosis

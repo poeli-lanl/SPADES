@@ -49,7 +49,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.3.6"
+VERSION="1.3.7"
 INPUT=""
 BAM_INPUT=""
 BAM_MODE="false"
@@ -73,7 +73,7 @@ JS_EXTERNAL="false"
 MIN_DEPTH="10"
 DB_LEVEL=""
 SKIP_QC="false"
-AUTO_SKIP_QC_RATIO="0.2"
+AUTO_SKIP_QC_RATIO="0.4"
 USE_ORIGINAL_READS="false"
 
 # parse args
@@ -224,14 +224,14 @@ log_error() {
 create_placeholder_outputs() {
   local status=0
   local outputs=(
-    "$OUTDIR/$PREFIX.krona.html"
     "$OUTDIR/$PREFIX.pathogen.tsv"
     "$OUTDIR/$PREFIX.pathogen.summary.txt"
-    "$OUTDIR/$PREFIX.pathogen.full.tsv"
-    "$OUTDIR/$PREFIX.pathogen.summary.tsv"
-    "$OUTDIR/$PREFIX.pathogen.full.html"
-    "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.coverage.tsv"
-    "$OUTDIR/$PREFIX.coverage.html"
+    "$OUTDIR/$PREFIX.taxonomy.tsv"
+    "$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv"
+    "$OUTDIR/$PREFIX.reads_qc.html"
+    "$OUTDIR/$PREFIX.results_viewer.html"
+    "$OUTDIR/$PREFIX.results_krona.html"
+    "$OUTDIR/$PREFIX.coverage_browser.html"
     "$OUTDIR/$PREFIX.info"
   )
 
@@ -266,10 +266,11 @@ prepare_output_dir() {
 fastp_qc() {
   log_start "Running fastp pre-processing..."
   INPUT_QC="$OUTDIR/${PREFIX}.qc.fastq.gz"
+  HTML_QC="$OUTDIR/${PREFIX}.reads_qc.html"
   if [[ "$PAIRED" == "true" ]]; then
     INPUT_QC_R1="$OUTDIR/${PREFIX}.R1.qc.fastq.gz"
     INPUT_QC_R2="$OUTDIR/${PREFIX}.R2.qc.fastq.gz"
-    fastp -i "$READ1" -I "$READ2" -o "$INPUT_QC_R1" -O "$INPUT_QC_R2" -j "$INPUT_QC.json" -h "$INPUT_QC.html"
+    fastp -i "$READ1" -I "$READ2" -o "$INPUT_QC_R1" -O "$INPUT_QC_R2" -j "$INPUT_QC.json" -h "$HTML_QC"
     local status=$?
     if [[ $status -eq 0 ]]; then
       log_success "Pre-processing completed: '$INPUT_QC_R1' and '$INPUT_QC_R2'."
@@ -278,7 +279,7 @@ fastp_qc() {
     fi
     return $status
   else
-    fastp -i "$INPUT" -o "$INPUT_QC" -j "$INPUT_QC.json" -h "$INPUT_QC.html"
+    fastp -i "$INPUT" -o "$INPUT_QC" -j "$INPUT_QC.json" -h "$HTML_QC"
     local status=$?
     if [[ $status -eq 0 ]]; then
       log_success "Pre-processing completed: '$INPUT_QC'."
@@ -292,7 +293,8 @@ fastp_qc() {
 fastplong_qc() {
   log_start "Running fastplong pre-processing..."
   INPUT_QC="$OUTDIR/${PREFIX}.qc.fastq.gz"
-  fastplong -i "$INPUT" -o "$INPUT_QC" -l 150 -j "$INPUT_QC.json" -h "$INPUT_QC.html"
+  HTML_QC="$OUTDIR/${PREFIX}.reads_qc.html"
+  fastplong -i "$INPUT" -o "$INPUT_QC" -l 150 -j "$INPUT_QC.json" -h "$HTML_QC"
   local status=$?
   if [[ $status -eq 0 ]]; then
     log_success "Pre-processing completed: '$INPUT_QC'."
@@ -416,14 +418,14 @@ generate_krona_plot() {
   local status=0
   if grep -q "^species" "$OUTDIR/$PREFIX.tsv"; then
     grep "^species" "$OUTDIR/$PREFIX.tsv" \
-      | ktImportTaxonomy -t 3 -m 9 -o "$OUTDIR/$PREFIX.krona.html" - \
+      | ktImportTaxonomy -t 3 -m 9 -o "$OUTDIR/$PREFIX.results_krona.html" - \
       || status=$?
   else
-    printf '<!DOCTYPE html><html><body><p>No species-level GOTTCHA2 rows available for Krona.</p></body></html>\n' > "$OUTDIR/$PREFIX.krona.html" \
+    printf '<!DOCTYPE html><html><body><p>No species-level GOTTCHA2 rows available for Krona.</p></body></html>\n' > "$OUTDIR/$PREFIX.results_krona.html" \
       || status=$?
   fi
   if [[ $status -eq 0 ]]; then
-    log_success "Krona plot generated: '$OUTDIR/$PREFIX.krona.html'."
+    log_success "Krona plot generated: '$OUTDIR/$PREFIX.results_krona.html'."
   else
     log_error "Krona plot generation failed (exit $status)."
   fi
@@ -435,12 +437,14 @@ annotate_pathogens_qualified() {
   touch "$OUTDIR/$PREFIX.pathogen.tsv"
   pathogen.py \
     -i "$OUTDIR/$PREFIX.tsv" \
-    -o "$OUTDIR/$PREFIX.pathogen.tsv" \
+    -o "$OUTDIR/$PREFIX.taxonomy.tsv" \
     -d "$SPADES_DATA/taxonomy_db" \
     -c "$DB_PATH.tax.tsv" \
     -p "$SPADES_DATA/pathogen.tsv" > "$OUTDIR/$PREFIX.pathogen.summary.txt"
   local status=$?
   if [[ $status -eq 0 ]]; then
+    # filter out empty pathogen annotations
+    awk 'NR==1 || $13 != ""' "$OUTDIR/$PREFIX.taxonomy.tsv" > "$OUTDIR/$PREFIX.pathogen.tsv" || exit $?
     log_success "Pathogen annotation completed: '$OUTDIR/$PREFIX.pathogen.tsv'."
     log_success "Pathogen summary saved: '$OUTDIR/$PREFIX.pathogen.summary.txt'."
   else
@@ -451,16 +455,16 @@ annotate_pathogens_qualified() {
 
 annotate_pathogens_full() {
   log_start "Annotating pathogens for all taxa..."
-  touch "$OUTDIR/$PREFIX.pathogen.full.tsv"
+  touch "$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv"
   pathogen.py \
     -i "$OUTDIR/$PREFIX.full.tsv" \
-    -o "$OUTDIR/$PREFIX.pathogen.full.tsv" \
+    -o "$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv" \
     -d "$SPADES_DATA/taxonomy_db" \
     -c "$DB_PATH.tax.tsv" \
     -p "$SPADES_DATA/pathogen.tsv"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Pathogen annotation completed: '$OUTDIR/$PREFIX.pathogen.full.tsv'."
+    log_success "Pathogen annotation completed: '$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv'."
   else
     log_error "Pathogen annotation for all taxa failed (exit $status)."
   fi
@@ -495,11 +499,11 @@ generate_result_viewer() {
   log_start "Generating result viewer HTML..."
 
   result_viewer.py \
-    -i "$OUTDIR/$PREFIX.pathogen.full.tsv" \
-    -o "$OUTDIR/$PREFIX.pathogen.full.html" 
+    -i "$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv" \
+    -o "$OUTDIR/$PREFIX.results_viewer.html"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Result viewer HTML generated: '$OUTDIR/$PREFIX.pathogen.full.html'."
+    log_success "Result viewer HTML generated: '$OUTDIR/$PREFIX.results_viewer.html'."
   else
     log_error "Result viewer generation failed (exit $status)."
   fi
@@ -532,7 +536,7 @@ generate_coverage_browser() {
       -p "$PREFIX" \
       -b "$bam" \
       --min-depth "$MIN_DEPTH" \
-      -o "$OUTDIR/$PREFIX.coverage.html" || status=$?
+      -o "$OUTDIR/$PREFIX.coverage_browser.html" || status=$?
   fi
 
   if [[ -n "$bam_dir" ]]; then
@@ -540,7 +544,7 @@ generate_coverage_browser() {
   fi
 
   if [[ $status -eq 0 ]]; then
-    log_success "Coverage browser HTML generated: '$OUTDIR/$PREFIX.coverage.html'."
+    log_success "Coverage browser HTML generated: '$OUTDIR/$PREFIX.coverage_browser.html'."
   else
     log_error "Coverage browser generation failed (exit $status)."
   fi
@@ -549,22 +553,23 @@ generate_coverage_browser() {
 
 after_run() {
   log_start "Writing pipeline metadata..."
-  echo -e "SPADES_version=$VERSION" > "$OUTDIR/$PREFIX.info"
-  fastp --version | sed 's/ /=/' >> "$OUTDIR/$PREFIX.info"
-  fastplong --version | sed 's/ /=/' >> "$OUTDIR/$PREFIX.info"
-  echo "GOTTCHA2_version=$(gottcha2 profile --version)" >> "$OUTDIR/$PREFIX.info"
-  echo "GOTTCHA2_database=$DB_PATH" >> "$OUTDIR/$PREFIX.info"
-  echo "input_mode=$([[ "$BAM_MODE" == "true" ]] && echo bam || echo reads)" >> "$OUTDIR/$PREFIX.info"
+  INFO_FILE="$OUTDIR/$PREFIX.info"
+  echo -e "SPADES_version=$VERSION" > "$INFO_FILE"
+  fastp --version | sed 's/ /=/' >> "$INFO_FILE"
+  fastplong --version | sed 's/ /=/' >> "$INFO_FILE"
+  echo "GOTTCHA2_version=$(gottcha2 profile --version)" >> "$INFO_FILE"
+  echo "GOTTCHA2_database=$DB_PATH" >> "$INFO_FILE"
+  echo "input_mode=$([[ "$BAM_MODE" == "true" ]] && echo bam || echo reads)" >> "$INFO_FILE"
   if [[ "$BAM_MODE" == "true" ]]; then
-    echo "input_bam=$BAM_INPUT" >> "$OUTDIR/$PREFIX.info"
+    echo "input_bam=$BAM_INPUT" >> "$INFO_FILE"
   fi
-  echo "ONT_mode=$ONT" >> "$OUTDIR/$PREFIX.info"
-  echo "ONT_error_rate=$ONT_ERROR_RATE" >> "$OUTDIR/$PREFIX.info"
+  echo "ONT_mode=$ONT" >> "$INFO_FILE"
+  echo "ONT_error_rate=$ONT_ERROR_RATE" >> "$INFO_FILE"
   samtools --version | awk '
     /^samtools / { print "samtools_version="$2 }
-    /^Using htslib / { print "samtools_htslib_version="$3 }' >> "$OUTDIR/$PREFIX.info"
+    /^Using htslib / { print "samtools_htslib_version="$3 }' >> "$INFO_FILE"
   if [[ "$BAM_MODE" != "true" ]]; then
-    gzip -dc "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz" | grep "##bcftools" | sed 's/##//' | sed 's/; /\n/' >> "$OUTDIR/$PREFIX.info"
+    gzip -dc "$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.vcf.gz" | grep "##bcftools" | sed 's/##//' | sed 's/; /\n/' >> "$INFO_FILE"
   fi
 
   local status=$?
@@ -578,26 +583,30 @@ after_run() {
   log_start "Organizing output directory..."
   
   local intermediate_dir="$OUTDIR/intermediate"
-  mkdir -p "$intermediate_dir"
+  local results_html_dir="$OUTDIR/results_html"
   local move_status=0
+
+  mkdir -p "$intermediate_dir"
+  mkdir -p "$results_html_dir"
   
+  # Move HTML files to results_html directory  
+  for f in "$OUTDIR/$PREFIX".*.html; do
+    [[ -e "$f" ]] && mv "$f" "$results_html_dir/" || move_status=$?
+  done
+
   # Move all files matching the prefix to intermediate directory
   for f in "$OUTDIR/$PREFIX".*; do
     [[ -e "$f" ]] && mv "$f" "$intermediate_dir/" || move_status=$?
   done
-  
+
   # List of final output files to move back to $OUTDIR
   local final_outputs=(
-    "$intermediate_dir/$PREFIX.info"
-    "$intermediate_dir/$PREFIX.krona.html"
-    "$intermediate_dir/$PREFIX.qc.fastq.gz.html"
     "$intermediate_dir/$PREFIX.pathogen.tsv"
     "$intermediate_dir/$PREFIX.pathogen.summary.txt"
-    "$intermediate_dir/$PREFIX.pathogen.full.tsv"
-    "$intermediate_dir/$PREFIX.pathogen.full.html"
-    "$intermediate_dir/$PREFIX.coverage.html"
+    "$intermediate_dir/$PREFIX.taxonomy.tsv"
+    "$intermediate_dir/$PREFIX.taxonomy.unfiltered.tsv"
   )
-  
+
   # Move final outputs back to main output directory
   for file in "${final_outputs[@]}"; do
     if [[ -e "$file" ]]; then

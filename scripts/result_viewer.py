@@ -16,37 +16,37 @@ HTML_ASSET_DIR = os.path.realpath(
 
 RESOURCE_SPECS = (
     {
-        'marker': '<script src="/publicdata/js/vue.global.prod.js"></script>',
-        'path': 'js/vue.global.prod.js',
-        'kind': 'script',
-    },
-    {
-        'marker': '<script src="/publicdata/js/primevue.min.js"></script>',
-        'path': 'js/primevue.min.js',
-        'kind': 'script',
-    },
-    {
-        'marker': '<script src="/publicdata/js/aura.js"></script>',
-        'path': 'js/aura.js',
-        'kind': 'script',
-    },
-    {
-        'marker': '<script src="/publicdata/js/d3.v7.min.js"></script>',
+        'marker': '<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>',
         'path': 'js/d3.v7.min.js',
         'kind': 'script',
     },
     {
-        'marker': '<link href="/publicdata/css/bootstrap.min.css" rel="stylesheet">',
+        'marker': '<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>',
+        'path': 'js/vue.global.prod.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<script src="https://unpkg.com/primevue/umd/primevue.min.js"></script>',
+        'path': 'js/primevue.min.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<script src="https://unpkg.com/@primeuix/themes/umd/aura.js"></script>',
+        'path': 'js/aura.js',
+        'kind': 'script',
+    },
+    {
+        'marker': '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">',
         'path': 'css/bootstrap.min.css',
         'kind': 'style',
     },
     {
-        'marker': '<link rel="stylesheet" href="/publicdata/css/primeicons.css">',
+        'marker': '<link rel="stylesheet" href="https://unpkg.com/primeicons/primeicons.css">',
         'path': 'css/primeicons.css',
         'kind': 'primeicons',
     },
     {
-        'marker': '<script src="/publicdata/js/bootstrap.bundle.min.js"></script>',
+        'marker': '<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>',
         'path': 'js/bootstrap.bundle.min.js',
         'kind': 'script',
     },
@@ -168,14 +168,27 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GOTTCHA2: REPORT_TITLE</title>
-  
-  <script src="/publicdata/js/vue.global.prod.js"></script>
-  <script src="/publicdata/js/primevue.min.js"></script>
-  <script src="/publicdata/js/aura.js"></script>
-  <script src="/publicdata/js/d3.v7.min.js"></script>
 
-  <link href="/publicdata/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/publicdata/css/primeicons.css">
+  <!-- D3.js v7 -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  
+  <!-- Vue.js 3 (production) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  
+  <!-- PrimeVue -->
+  <script src="https://unpkg.com/primevue/umd/primevue.min.js"></script>
+  
+  <!-- PrimeVue Aura Theme -->
+  <script src="https://unpkg.com/@primeuix/themes/umd/aura.js"></script>
+  
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- PrimeIcons -->
+  <link rel="stylesheet" href="https://unpkg.com/primeicons/primeicons.css">
 
   <style>
     :root {
@@ -1113,7 +1126,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     </div>
 
 </main>
-<script src="/publicdata/js/bootstrap.bundle.min.js"></script>
 
 <script>
 // Embed data

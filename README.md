@@ -5,9 +5,10 @@
 The SPADES (Sequence-based Pathogen-Agnostic Diagnostics/Detection Solution) program is a full suite of  bioinformatics tools for detecting pathogens in complex metagenomic DNA sequencing datasets. The output of SPADES includes the detected organisms, highlighting the possible pathogens identified, with coverage-based validation. Under the hood, SPADES utilizes the GOTTCHA2 taxonomy profiling bioinformatics algorithms and databases, extracts pathogen hits, computes detailed signature/genome coverage summaries, and automatically generates an interactive report/plot for rapid interpretation and triage.
 
 ## Requirements
+
 - Conda or mamba (recommended)
 - Dependencies in `environment.yml` (python 3.12, minimap2, krona, samtools, etc.)
-- A GOTTCHA2 fast-profile database (base path with `.syldb`, `.zip`, `.stats`, `.tax.tsv`)
+- A GOTTCHA2 database (`.syldb`, `.zip`, `.stats`, `.tax.tsv` for read input; `.stats` and `.tax.tsv` for existing-BAM input)
 - Taxonomy and pathogen data (provided in `data/`)
 - Minimal hardware: 4 CPU cores, 24 GB RAM, 100 GB disk space
 
@@ -38,14 +39,22 @@ build commands.
 
 ### Database Requirements
 
+> **Warning:** If you downloaded the database before October 27, 2026 (`20261027`), we recommend downloading an updated version from the [SPADES database download page](https://ref-db.edgebioinformatics.org/spades-g2/).
+
 The [**SPADES database**](https://ref-db.edgebioinformatics.org/spades-g2/) is available for download [here](https://ref-db.edgebioinformatics.org/spades-g2/). The script to start SPADES, `run_SPADES.sh`, uses `gottcha2 fast-profile`. The database path passed with
-`-d/--db-path` should be the base path without extensions, and these files must
-exist next to it:
+`-d/--db-path` accepts the database base path or a path ending in `.syldb`,
+`.zip`, `.stats`, or `.tax.tsv`. For read input, these files must exist next
+to the base path:
 
 - `<db>.syldb`
 - `<db>.zip`
 - `<db>.stats`
 - `<db>.tax.tsv`
+
+Existing-BAM mode requires only `<db>.stats` and `<db>.tax.tsv`. The database
+level is detected from the base filename or the `.stats` file.
+
+
 
 ## Usage
 
@@ -59,9 +68,15 @@ exist next to it:
   [--spades-data data/] \
   [--ont] \
   [--ont-error-rate 0.03] \
+  [--min-depth 10] \
   [--skip-qc] \
+  [--auto-skip-qc-ratio 0.2] \
   [--clean]
 ```
+
+For paired-end FASTQ input, replace `-i reads.fastq.gz` with
+`-1 reads_R1.fastq.gz -2 reads_R2.fastq.gz`. Both mates are required;
+paired-end input cannot be combined with `--ont`.
 
 Re-profile an existing coordinate-sorted and indexed GOTTCHA2 BAM without
 mapping the reads again:
@@ -78,66 +93,84 @@ mapping the reads again:
 
 The BAM index must be named `<bam>.bai`. Existing-BAM mode runs `gottcha2
 profile --bam`, regenerates the taxonomic/pathogen reports, and creates a
-coverage report without re-mapping reads or re-calling variants.
+coverage browser without re-mapping reads. Read QC is bypassed in this mode.
 
 For detailed instructions on using GOTTCHA2, please see its [wiki page](https://github.com/poeli/GOTTCHA2/wiki).
 
 Options:
+
 - `-i, --input` Single-end FASTA/FASTQ reads file (optionally gzipped)
 - `-1, --read1` Paired-end read 1 (fastq/fq[.gz], etc.)
 - `-2, --read2` Paired-end read 2 (fastq/fq[.gz], etc.)
 - `-b, --bam` Existing coordinate-sorted GOTTCHA2 BAM; mutually exclusive with read input
 - `-o, --outdir` Output directory
 - `-p, --prefix` Output prefix (base filename)
-- `-d, --db-path` GOTTCHA2 fast-profile database base path
+- `-d, --db-path` GOTTCHA2 database base path or one of its companion files
 - `-t, --cpu` Threads/CPUs (positive integer)
 - `--spades-data` Directory containing `taxonomy_db/` and `pathogen.tsv` (default: `data/`)
-- `--ont` Treat input as long reads; pre-processes with `fastplong`, splits to 150 bp, and passes relaxed error rate flags to GOTTCHA2
+- `--ont` Treat reads or BAM as ONT data; uses `fastplong` for FASTQ QC (unless skipped) and passes ONT profiling flags to GOTTCHA2
 - `--ont-error-rate` Error rate for ONT reads passed to GOTTCHA2 (`-er`), default: `0.03`
 - `--clean` Remove intermediate files after the run (see Outputs section for details)
 - `--min-depth` Minimum depth for variant calling (default: 10)
 - `--skip-qc` Skip fastp/fastplong quality control and preprocessing steps
+- `--auto-skip-qc-ratio` Use original reads downstream when QC retains less than this fraction (decimal from `0` to `1`, default: `0.2`)
+- `--js-external` Deprecated compatibility option; HTML resources are always embedded
 - `--version` Show script version and exit
 - `-h, --help` Show usage
 
+Single-end FASTA input automatically bypasses FASTQ quality filtering. When QC
+runs, its reports are retained even if `--auto-skip-qc-ratio` causes the pipeline
+to use the original reads. Set the ratio to `0` to disable this automatic
+fallback, or use `--skip-qc` to bypass QC entirely.
+
 ## Outputs
 
-The pipeline writes results to the output directory. Final outputs are kept in the main output directory, while intermediate files are organized in an `intermediate/` subdirectory for debugging purposes.
+The pipeline keeps final tables in the main output directory, HTML reports in
+`results_html/`, and supporting files in `intermediate/`.
 
 ### Final Outputs (in `<outdir>/`)
 
-- `<prefix>.info` Pipeline metadata (versions, database path, parameters)
-- `<prefix>.krona.html` Interactive Krona taxonomic plot
-- `<prefix>.qc.fastq.gz.html` FastP/FastPlong QC report
-- `<prefix>.pathogen.tsv` Pathogen-annotated GOTTCHA2 hits (qualified taxa only)
+- `<prefix>.pathogen.tsv` Qualified GOTTCHA2 hits with pathogen annotations
 - `<prefix>.pathogen.summary.txt` Pathogen detection summary text log
-- `<prefix>.pathogen.summary.tsv` Genus/species level pathogen data for quick inspection
-- `<prefix>.pathogen.full.tsv` Pathogen annotations for all detected taxa
-- `<prefix>.pathogen.full.html` Interactive result viewer with filtering and visualization
-- `<prefix>.coverage.html` Interactive coverage browser with variant information
+- `<prefix>.taxonomy.tsv` All qualified GOTTCHA2 taxa with pathogen annotations where available
+- `<prefix>.taxonomy.unfiltered.tsv` All detected taxa, including those failing GOTTCHA2 filters, with pathogen annotations where available
+
+### HTML Reports (in `<outdir>/results_html/`)
+
+- `<prefix>.results_viewer.html` Interactive viewer of the unfiltered taxonomy table
+- `<prefix>.results_krona.html` Interactive Krona taxonomic plot
+- `<prefix>.coverage_browser.html` Interactive coverage browser with variant information
+- `<prefix>.reads_qc.html` FastP/FastPlong QC report (when QC runs)
 
 ### Intermediate Files (in `<outdir>/intermediate/`)
 
+- `<prefix>.info` Pipeline metadata (versions, database path, input mode, ONT settings)
+- `<prefix>.pathogen.summary.tsv` Genus/species level pathogen data
 - `<prefix>.tsv` GOTTCHA2 profiling result table (filtered)
 - `<prefix>.full.tsv` GOTTCHA2 full profiling output
 - `<prefix>.gottcha_<dbLevel>.bam` Alignment file (with index)
 - `<prefix>.gottcha_<dbLevel>.sam` SAM alignment (if produced)
-- `<prefix>.gottcha_<dbLevel>.vcf.gz` Variant calls (with index)
+- `<prefix>.gottcha_<dbLevel>.vcf.gz` Variant calls (with index, when produced)
 - `<prefix>.gottcha_<dbLevel>.coverage.tsv` Coverage summary table
 - `<prefix>.qc.fastq.gz` (or `R1/R2`) Quality-controlled reads
 - `<prefix>.qc.fastq.gz.json` FastP/FastPlong JSON report
-- `<prefix>.split_reads.fasta.gz` Split reads (ONT mode)
 - `<prefix>.mpa.tsv` MetaPhlAn-compatible output
 - `<prefix>.lineage.tsv` Lineage information
 - `<prefix>.sylph_*` Sylph extraction files
-- Reference FASTA files used for alignment
+- `<prefix>.sylph_extracted.fa.bgz` Extracted reference FASTA used for alignment and coverage analysis (with indexes when produced)
+
+Existing-BAM mode uses the supplied BAM and its index in place; it does not
+copy them into the final output directory.
 
 ### Cleanup Behavior
 
-- **Default** (no `--clean`): All files are preserved. Final outputs remain in `<outdir>/` for easy access, while intermediate files are moved to `<outdir>/intermediate/` for debugging and downstream analysis.
-- **With `--clean`**: The `intermediate/` directory and all its contents are deleted after the pipeline completes, leaving only the final output files in `<outdir>/`.
+- **Default** (no `--clean`): All files are preserved, with final tables in `<outdir>/`, HTML reports in `<outdir>/results_html/`, and supporting files in `<outdir>/intermediate/`.
+- **With `--clean`**: The `intermediate/` directory and all its contents, including metadata and QC JSON, are deleted. Final tables and `results_html/` are retained.
 
-If no qualifying GOTTCHA2 hits are found, the script creates placeholder outputs so downstream steps still receive expected files and then exits cleanly.
+If GOTTCHA2 produces no results, the script creates empty placeholder tables,
+HTML reports, metadata, and (for read input) a BAM, then exits cleanly before
+organizing the output directory. These placeholders remain directly in
+`<outdir>/`; QC and other files already generated are also left in place.
 
 ### GOTTCHA2 Full Report
 
@@ -150,8 +183,9 @@ cd test
 ./test_run.sh
 ```
 
-This runs a small ONT example using files under `test/` and the bundled data in
-`data/`. Output can be found in the generated directories under `test/`.
+This runs ONT, single-end, and paired-end examples using files under `test/`
+and the bundled data in `data/`. Output can be found in the generated
+directories under `test/`.
 
 ## Streaming Oxford Nanopore directories
 
@@ -183,8 +217,12 @@ from plain or gzip-compressed FASTA/FASTQ input, so the **Input reads** metric
 remains available in the dashboard. Because no QC was performed, **Post-QC
 reads** is shown as `—` instead of repeating the input count.
 
-Per-timepoint working files are removed after successful processing by default.
-Use `--keep-timepoints` when chunk and staged profile files are needed for
+The monitor also accepts `--auto-skip-qc-ratio` (default: `0.2`) and forwards it
+to `run_SPADES.sh`. If this fallback uses original reads, **Post-QC reads**
+still reports the number retained by QC, rather than the number used downstream.
+
+Per-batch working files are removed after successful processing by default.
+Use `--keep-batches` when chunk and staged profile files are needed for
 troubleshooting.
 
 Streaming output is organized as follows:
@@ -192,38 +230,49 @@ Streaming output is organized as follows:
 ```text
 <outdir>/
   cumulative/<prefix>.gottcha_<level>.bam[.bai]
-  cumulative/<prefix>.sylph_extracted.fa.gz
-  cumulative/<prefix>.pathogen.full.tsv
-  cumulative/<prefix>.pathogen.full.html
+  cumulative/<prefix>.sylph_extracted.fa.bgz
+  cumulative/<prefix>.pathogen.tsv
+  cumulative/<prefix>.pathogen.summary.txt
+  cumulative/<prefix>.taxonomy.tsv
+  cumulative/<prefix>.taxonomy.unfiltered.tsv
+  cumulative/results_html/<prefix>.results_viewer.html
+  cumulative/results_html/<prefix>.results_krona.html
+  cumulative/results_html/<prefix>.coverage_browser.html
   cumulative/<prefix>.gottcha_<level>.coverage.tsv
+  cumulative/intermediate/<prefix>.info
   cumulative/...       # other files from the latest cumulative profile
   <prefix>.stream.html
   stream_state.json
-  timepoints.tsv
+  batches.tsv
   logs/
 ```
 
-With `--keep-timepoints`, each batch also retains
-`timepoints/timepoint_000001/chunk/` and
-`timepoints/timepoint_000001/profile/`.
+With `--keep-batches`, each batch also retains
+`batches/batch_000001/chunk/` and
+`batches/batch_000001/profile/`, including chunk QC reports. An alignment-free
+run can publish the pipeline's root-level placeholders under `cumulative/`
+instead of `cumulative/results_html/`.
 
 `stream_state.json` makes restarts idempotent: an unchanged input file is not
 processed twice. If a file at the same path changes size or modification time,
 it is treated as a new timepoint. The cumulative BAM is replaced atomically
 after the merged BAM and final report both validate.
 
-`timepoints.tsv` records `raw_reads`, `filtered_reads`, and their cumulative
+`batches.tsv` records `raw_reads`, `filtered_reads`, and their cumulative
 totals for every timepoint. When `--skip-qc` is active, `raw_reads` contains the
 directly counted input records while `filtered_reads` and its cumulative total
-are left empty. With `--keep-timepoints`, the manifest also records the retained
+are left empty. With `--keep-batches`, the manifest also records the retained
 `qc_json` path when QC was run. `<prefix>.stream.html` is a self-contained,
 auto-refreshing status dashboard. It shows the current and overall monitor
 state, the latest cumulative screening finding, cumulative read totals, recent
 timepoints, and one tile per identified human-pathogenic species. The footer
 shows the version reported by `run_SPADES.sh --version`.
 The latest-results section links directly to the cumulative
-`<prefix>.pathogen.full.html` report and `<prefix>.coverage.html` coverage report
-from pills beside the database name in the dashboard header.
+`cumulative/results_html/<prefix>.results_viewer.html` report and
+`cumulative/results_html/<prefix>.coverage_browser.html` coverage report.
+For compatibility with existing state files and dashboard readers, the manifest
+and state keys `pathogen_full_tsv`, `pathogen_full_html`, and `coverage_html`
+retain their names while pointing to the new filenames.
 Current findings are visually distinguished from historical-only findings.
 Clicking a species expands three line charts tracking supporting read
 alignments, signature coverage (`SIG_COV`), and SNI score over time. The report
@@ -233,8 +282,8 @@ confirmation limitations visible for clinical users.
 ## Notes
 
 - The script exports its own `scripts/` folder onto `PATH` and defaults `--spades-data` to `data/` next to the script.
-- `--ont` uses `fastplong`, splits reads to 150 bp, and passes the error rate to GOTTCHA2 (`--ont-error-rate`, default `0.03`). Suggesting values: `0.05` for legacy R9.4.1 (HAC/SUP), `0.01` for R10.4.1 (Simplex/SUP), and `0.001` for R10.4.1 (Duplex/SUP).
-- `--clean` removes the `intermediate/` directory after a successful run, keeping only final output files in the main output directory. Without `--clean`, all intermediate files are preserved in `intermediate/` for debugging.
+- `stream_spades.py` always enables `--ont`; no separate `--ont` option is needed for streaming.
+- `--clean` removes the `intermediate/` directory after a successful run, keeping final tables and `results_html/`. Without `--clean`, all intermediate files are preserved for debugging.
 - `--min-depth` sets the minimum depth threshold for variant calling in the coverage browser (default: 10).
 - Ensure the database path points to the base file (e.g. `gottcha_db.species.fna`) and that the corresponding `.syldb`, `.zip`, `.stats`, and `.tax.tsv` exist.
 

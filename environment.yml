@@ -12,8 +12,8 @@ dependencies:
   - gsl
   - fastp>=1.4.0
   - fastplong>=0.7.1
-  - gottcha2>=2.5.1.1
+  - gottcha2>=2.5.2
   - pip
   - pip:
-    - detaxa
+    - detaxa>=0.6.2
     - minify-html

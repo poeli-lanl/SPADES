@@ -10,6 +10,8 @@ from scripts.stream_report import build_payload
 
 
 class FakeStreamSpades(stream_spades.StreamSpades):
+    no_alignments = False
+
     def _bam_is_valid(self, path):
         return bool(path and path.is_file() and path.stat().st_size > 0)
 
@@ -19,22 +21,29 @@ class FakeStreamSpades(stream_spades.StreamSpades):
             outdir = Path(command[command.index("-o") + 1])
             prefix = command[command.index("-p") + 1]
             outdir.mkdir(parents=True, exist_ok=True)
+            # Successful runs organize supporting files and HTML; a no-results
+            # run exits early with empty placeholder reports in the root.
+            intermediate = outdir if self.no_alignments else outdir / "intermediate"
+            reports = outdir if self.no_alignments else outdir / "results_html"
+            intermediate.mkdir(exist_ok=True)
+            reports.mkdir(exist_ok=True)
+            header = "LEVEL\tNAME\tTAXID\tREAD_COUNT\tSIG_COV\tSNI_SCORE\tHUMAN_PATHOGEN\n"
+            result = "" if self.no_alignments else header
             if "-i" in command:
                 self.processing_report = (
                     self.output_dir / "stream.stream.html"
                 ).read_text(encoding="utf-8")
                 source = Path(command[command.index("-i") + 1])
-                intermediate = outdir / "intermediate"
-                intermediate.mkdir()
                 bam = intermediate / f"{prefix}.gottcha_species.bam"
-                bam.write_bytes(source.read_bytes())
+                bam.write_bytes(b"" if self.no_alignments else source.read_bytes())
                 Path(f"{bam}.bai").touch()
-                from pysam import BGZFile
+                if not self.no_alignments:
+                    from pysam import BGZFile
 
-                with BGZFile(
-                    str(outdir / f"{prefix}.sylph_extracted.fa.bgz"), "wb"
-                ) as handle:
-                    handle.write(f">reference_{source.name}\nACGT\n".encode())
+                    with BGZFile(
+                        str(intermediate / f"{prefix}.sylph_extracted.fa.bgz"), "wb"
+                    ) as handle:
+                        handle.write(f">reference_{source.name}\nACGT\n".encode())
                 if "--skip-qc" not in command:
                     (intermediate / f"{prefix}.qc.fastq.gz.json").write_text(
                         json.dumps(
@@ -47,39 +56,28 @@ class FakeStreamSpades(stream_spades.StreamSpades):
                         ),
                         encoding="utf-8",
                     )
-                (outdir / f"{prefix}.pathogen.full.tsv").write_text(
-                    "LEVEL\tNAME\tTAXID\tREAD_COUNT\tSIG_COV\tSNI_SCORE\tHUMAN_PATHOGEN\n",
-                    encoding="utf-8",
-                )
-                (outdir / f"{prefix}.pathogen.full.html").write_text(
-                    "<html><body>No alignments</body></html>\n", encoding="utf-8"
-                )
-                (outdir / f"{prefix}.coverage.html").write_text(
-                    "<html><body>No coverage</body></html>\n", encoding="utf-8"
-                )
-                (outdir / f"{prefix}.gottcha_species.coverage.tsv").write_text(
-                    "#rname\tstartpos\tendpos\n", encoding="utf-8"
-                )
             else:
                 sequence = int(self.state["pending"]["batch"])
-                (outdir / f"{prefix}.pathogen.full.tsv").write_text(
-                    "LEVEL\tNAME\tTAXID\tREAD_COUNT\tSIG_COV\tSNI_SCORE\tHUMAN_PATHOGEN\n"
+                result += (
                     f"species\tTest pathogen\t1234\t{sequence * 10}\t"
-                    f"{sequence / 10:.2f}\t{0.95 + sequence / 100:.3f}\tYes\n",
+                    f"{sequence / 10:.2f}\t{0.95 + sequence / 100:.3f}\tYes\n"
+                )
+            for suffix in ("taxonomy.unfiltered.tsv", "taxonomy.tsv", "pathogen.tsv"):
+                (outdir / f"{prefix}.{suffix}").write_text(result, encoding="utf-8")
+            (outdir / f"{prefix}.pathogen.summary.txt").touch()
+            (intermediate / f"{prefix}.info").write_text("SPADES_version=test\n")
+            for suffix in (
+                "results_viewer.html", "results_krona.html", "coverage_browser.html"
+            ):
+                (reports / f"{prefix}.{suffix}").write_text(
+                    "" if self.no_alignments else "<html><body>Report</body></html>\n",
                     encoding="utf-8",
                 )
-                (outdir / f"{prefix}.pathogen.full.html").write_text(
-                    f"<html><body>Batch {sequence} report</body></html>\n",
-                    encoding="utf-8",
-                )
-                (outdir / f"{prefix}.coverage.html").write_text(
-                    f"<html><body>Batch {sequence} coverage</body></html>\n",
-                    encoding="utf-8",
-                )
-                intermediate = outdir / "intermediate"
-                intermediate.mkdir()
+            if "-i" in command or self.no_alignments:
+                (reports / f"{prefix}.reads_qc.html").touch()
+            if not self.no_alignments:
                 (intermediate / f"{prefix}.gottcha_species.coverage.tsv").write_text(
-                    f"#rname\tstartpos\tendpos\nref\t1\t{sequence}\n",
+                    f"#rname\tstartpos\tendpos\nref\t1\t{self.state['pending']['batch']}\n",
                     encoding="utf-8",
                 )
             return
@@ -207,6 +205,27 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertFalse(parser.parse_args(required).skip_qc)
         self.assertTrue(parser.parse_args([*required, "--skip-qc"]).skip_qc)
 
+    def test_auto_skip_qc_ratio_is_validated_and_forwarded(self):
+        parser = stream_spades.build_parser()
+        required = [
+            "--input-dir", str(self.input_dir),
+            "--outdir", str(self.output_dir),
+            "--prefix", "stream",
+            "--db-path", str(self.database),
+        ]
+        self.assertEqual(parser.parse_args(required).auto_skip_qc_ratio, "0.2")
+        for ratio in ("0", ".35", "1.0", "0.00000001"):
+            with self.subTest(ratio=ratio):
+                args = parser.parse_args([*required, "--auto-skip-qc-ratio", ratio])
+                self.args.auto_skip_qc_ratio = args.auto_skip_qc_ratio
+                runner = FakeStreamSpades(self.args)
+                command = runner._spades_base_command(self.output_dir, "test")
+                self.assertEqual(command[command.index("--auto-skip-qc-ratio") + 1], ratio)
+        for ratio in ("-0.1", "1.1", "nan", "inf", "1e-8"):
+            with self.subTest(ratio=ratio):
+                with self.assertRaises(stream_spades.argparse.ArgumentTypeError):
+                    stream_spades.qc_ratio(ratio)
+
     def test_skip_qc_is_forwarded_and_read_counts_are_calculated(self):
         self.args.skip_qc = True
         input_path = self.input_dir / "chunk.fastq.gz"
@@ -275,7 +294,7 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertFalse((self.output_dir / "batches").exists())
         self.assertIn("chunk_1.fastq.gz", manifest)
         self.assertIn("chunk_2.fasta", manifest)
-        self.assertIn("cumulative/stream.pathogen.full.tsv", manifest)
+        self.assertIn("cumulative/stream.taxonomy.unfiltered.tsv", manifest)
         self.assertIn("cumulative/stream.sylph_extracted.fa.bgz", manifest)
         self.assertIn("raw_reads", manifest.splitlines()[0])
         self.assertEqual(resumed.state["batches"][0]["raw_reads"], 10)
@@ -293,17 +312,26 @@ class StreamSpadesTests(unittest.TestCase):
         self.assertIn("Taxa report", report)
         self.assertIn("Coverage", report)
         self.assertIn(
-            '"pathogen_full_html":"cumulative/stream.pathogen.full.html"', report
+            '"pathogen_full_html":"cumulative/results_html/stream.results_viewer.html"',
+            report,
         )
         self.assertIn(
             '"coverage_tsv":"cumulative/stream.gottcha_species.coverage.tsv"',
             report,
         )
         self.assertIn(
-            '"coverage_html":"cumulative/stream.coverage.html"', report
+            '"coverage_html":"cumulative/results_html/stream.coverage_browser.html"',
+            report,
         )
         self.assertTrue(
-            (self.output_dir / "cumulative" / "stream.pathogen.full.html").is_file()
+            (self.output_dir / "cumulative" / "results_html" / "stream.results_viewer.html").is_file()
+        )
+        self.assertTrue(
+            (self.output_dir / "cumulative" / "intermediate" / "stream.info").is_file()
+        )
+        self.assertEqual(
+            Path(resumed.state["latest_outputs"]["pathogen_full_tsv"]),
+            (self.output_dir / "cumulative" / "stream.taxonomy.unfiltered.tsv").resolve(),
         )
         coverage = (
             self.output_dir / "cumulative" / "stream.gottcha_species.coverage.tsv"
@@ -334,7 +362,10 @@ class StreamSpadesTests(unittest.TestCase):
 
         batch = self.output_dir / "batches" / "batch_000001"
         self.assertTrue((batch / "chunk").is_dir())
-        self.assertTrue((batch / "profile" / "stream.pathogen.full.tsv").is_file())
+        self.assertTrue((batch / "profile" / "stream.taxonomy.unfiltered.tsv").is_file())
+        self.assertTrue(
+            (batch / "profile" / "results_html" / "stream.results_viewer.html").is_file()
+        )
         self.assertTrue(
             (
                 batch
@@ -347,17 +378,36 @@ class StreamSpadesTests(unittest.TestCase):
     def test_alignment_free_chunk_publishes_placeholder_links(self):
         (self.input_dir / "empty.fastq.gz").write_bytes(b"reads\n")
         runner = FakeStreamSpades(self.args)
-        runner._bam_is_valid = lambda path: False
+        runner.no_alignments = True
 
         runner.run()
 
         record = runner.state["batches"][0]
         self.assertEqual(record["status"], "no_alignments")
+        self.assertEqual(record["profile_rows"], [])
         self.assertTrue(Path(record["pathogen_full_html"]).is_file())
-        self.assertTrue(Path(record["coverage_tsv"]).is_file())
+        self.assertTrue(Path(record["coverage_html"]).is_file())
+        self.assertEqual(record["coverage_tsv"], "")
+        cumulative = self.output_dir / "cumulative"
+        for suffix in (
+            "taxonomy.tsv", "taxonomy.unfiltered.tsv", "pathogen.tsv",
+            "pathogen.summary.txt", "results_viewer.html", "results_krona.html",
+            "coverage_browser.html", "reads_qc.html", "info",
+        ):
+            self.assertTrue((cumulative / f"stream.{suffix}").is_file(), suffix)
         report = (self.output_dir / "stream.stream.html").read_text(encoding="utf-8")
-        self.assertIn("cumulative/stream.pathogen.full.html", report)
-        self.assertIn("cumulative/stream.gottcha_species.coverage.tsv", report)
+        self.assertIn("cumulative/stream.results_viewer.html", report)
+        self.assertIn("cumulative/stream.coverage_browser.html", report)
+
+    def test_profile_requires_unfiltered_taxonomy_table(self):
+        profile = self.root / "profile"
+        profile.mkdir()
+        # The qualified table cannot replace the full table used for history.
+        (profile / "stream.taxonomy.tsv").touch()
+        runner = FakeStreamSpades(self.args)
+
+        with self.assertRaisesRegex(RuntimeError, "unfiltered taxonomy TSV"):
+            runner._profile_output_plan(profile, "stream")
 
     def test_multiple_ready_files_are_processed_sequentially(self):
         first = self.input_dir / "01.fastq.gz"

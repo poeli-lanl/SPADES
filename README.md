@@ -54,8 +54,6 @@ to the base path:
 Existing-BAM mode requires only `<db>.stats` and `<db>.tax.tsv`. The database
 level is detected from the base filename or the `.stats` file.
 
-
-
 ## Usage
 
 ```bash
@@ -100,8 +98,8 @@ For detailed instructions on using GOTTCHA2, please see its [wiki page](https://
 Options:
 
 - `-i, --input` Single-end FASTA/FASTQ reads file (optionally gzipped)
-- `-1, --read1` Paired-end read 1 (fastq/fq[.gz], etc.)
-- `-2, --read2` Paired-end read 2 (fastq/fq[.gz], etc.)
+- `-1, --read1` Paired-end read 1 (FASTQ/FASTA, optionally gzipped)
+- `-2, --read2` Paired-end read 2 (FASTQ/FASTA, optionally gzipped)
 - `-b, --bam` Existing coordinate-sorted GOTTCHA2 BAM; mutually exclusive with read input
 - `-o, --outdir` Output directory
 - `-p, --prefix` Output prefix (base filename)
@@ -118,7 +116,7 @@ Options:
 - `--version` Show script version and exit
 - `-h, --help` Show usage
 
-Single-end FASTA input automatically bypasses FASTQ quality filtering. When QC
+FASTA input (single-end, or both paired-end files) automatically bypasses FASTQ quality filtering. When QC
 runs, its reports are retained even if `--auto-skip-qc-ratio` causes the pipeline
 to use the original reads. Set the ratio to `0` to disable this automatic
 fallback, or use `--skip-qc` to bypass QC entirely.

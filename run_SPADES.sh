@@ -23,8 +23,8 @@ Usage:
 
 Input:
   -i, --input         Single-end FASTA/FASTQ file (optionally gzipped)
-  -1, --read1         Paired-end read 1 (fastq/fq[.gz])
-  -2, --read2         Paired-end read 2 (fastq/fq[.gz])
+  -1, --read1         Paired-end read 1 (fastq/fq/fasta[.gz])
+  -2, --read2         Paired-end read 2 (fastq/fq/fasta[.gz])
   -b, --bam           Existing coordinate-sorted GOTTCHA2 BAM (requires .bam.bai)
 
 Required:
@@ -49,7 +49,7 @@ EOF
 }
 
 # variables needed (declare + default)
-VERSION="1.3.7"
+VERSION="1.3.8"
 INPUT=""
 BAM_INPUT=""
 BAM_MODE="false"
@@ -209,16 +209,17 @@ is_fasta_file() {
 
 DB_LEVEL=$(detect_db_level "$DB_PATH") || exit $?
 
-log_start() {
-  echo "=> [INFO] $*"
+log_info() {
+  echo "[SPADES] [INFO] $*"
 }
 
-log_success() {
-  echo "[INFO] $*"
+log_warning() {
+  echo "[SPADES] [WARNING] $*"
 }
 
 log_error() {
-  echo "[ERROR] $*"
+  echo "[SPADES] [ERROR] $*"
+  exit 1
 }
 
 create_placeholder_outputs() {
@@ -244,7 +245,7 @@ create_placeholder_outputs() {
   done
 
   if [[ $status -eq 0 ]]; then
-    log_success "Placeholder outputs created for downstream steps."
+    log_info "Placeholder outputs created for downstream steps."
   else
     log_error "Failed to create placeholder outputs (exit $status)."
   fi
@@ -252,11 +253,11 @@ create_placeholder_outputs() {
 }
 
 prepare_output_dir() {
-  log_start "Preparing output directory..."
+  log_info "Preparing output directory..."
   mkdir -p "$OUTDIR"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Output directory ready: '$OUTDIR'."
+    log_info "Output directory ready: '$OUTDIR'."
   else
     log_error "Unable to create output directory (exit $status)."
   fi
@@ -264,7 +265,7 @@ prepare_output_dir() {
 }
 
 fastp_qc() {
-  log_start "Running fastp pre-processing..."
+  log_info "Running fastp pre-processing..."
   INPUT_QC="$OUTDIR/${PREFIX}.qc.fastq.gz"
   HTML_QC="$OUTDIR/${PREFIX}.reads_qc.html"
   if [[ "$PAIRED" == "true" ]]; then
@@ -273,7 +274,7 @@ fastp_qc() {
     fastp -i "$READ1" -I "$READ2" -o "$INPUT_QC_R1" -O "$INPUT_QC_R2" -j "$INPUT_QC.json" -h "$HTML_QC"
     local status=$?
     if [[ $status -eq 0 ]]; then
-      log_success "Pre-processing completed: '$INPUT_QC_R1' and '$INPUT_QC_R2'."
+      log_info "Pre-processing completed: '$INPUT_QC_R1' and '$INPUT_QC_R2'."
     else
       log_error "Unable to pre-process input file (exit $status)."
     fi
@@ -282,7 +283,7 @@ fastp_qc() {
     fastp -i "$INPUT" -o "$INPUT_QC" -j "$INPUT_QC.json" -h "$HTML_QC"
     local status=$?
     if [[ $status -eq 0 ]]; then
-      log_success "Pre-processing completed: '$INPUT_QC'."
+      log_info "Pre-processing completed: '$INPUT_QC'."
     else
       log_error "Unable to pre-process input file (exit $status)."
     fi
@@ -291,13 +292,13 @@ fastp_qc() {
 }
 
 fastplong_qc() {
-  log_start "Running fastplong pre-processing..."
+  log_info "Running fastplong pre-processing..."
   INPUT_QC="$OUTDIR/${PREFIX}.qc.fastq.gz"
   HTML_QC="$OUTDIR/${PREFIX}.reads_qc.html"
   fastplong -i "$INPUT" -o "$INPUT_QC" -l 150 -j "$INPUT_QC.json" -h "$HTML_QC"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Pre-processing completed: '$INPUT_QC'."
+    log_info "Pre-processing completed: '$INPUT_QC'."
   else
     log_error "Unable to pre-process input file (exit $status)."
   fi
@@ -340,15 +341,13 @@ auto_skip_qc_if_needed() {
   if awk -v pre="$pre_qc_reads" -v post="$post_qc_reads" -v threshold="$AUTO_SKIP_QC_RATIO" \
     'BEGIN { exit !(pre > 0 && post < pre * threshold) }'; then
     USE_ORIGINAL_READS="true"
-    log_success "QC retained $post_qc_reads of $pre_qc_reads reads, below the automatic bypass threshold ($AUTO_SKIP_QC_RATIO); using original input reads downstream."
-  else
-    log_success "QC retained $post_qc_reads of $pre_qc_reads reads; using QC-filtered reads downstream."
+    log_warning "QC retained $post_qc_reads of $pre_qc_reads reads, below the automatic bypass threshold ($AUTO_SKIP_QC_RATIO); using original input reads downstream."
   fi
 }
 
 run_gottcha2() {
   if [[ "$BAM_MODE" == "true" ]]; then
-      log_start "Re-running GOTTCHA2 profiling from existing BAM..."
+      log_info "Re-running GOTTCHA2 profiling from existing BAM..."
       gottcha2 profile \
               -b "$BAM_INPUT" \
               -t "$CPU" \
@@ -363,7 +362,7 @@ run_gottcha2() {
               --verbose \
               $ONT_FLAG
   elif [[ "$PAIRED" == "true" ]]; then
-      log_start "Running GOTTCHA2 (fast-profile mode)..."
+      log_info "Running GOTTCHA2 (fast-profile mode)..."
       gottcha2 fast-profile \
               -i "$READ1" "$READ2" \
               -t "$CPU" \
@@ -376,10 +375,9 @@ run_gottcha2() {
               --fast-min-kmer 5 \
               --mpa \
               -ss 0.85,0.95,0.99 \
-              --verbose \
-              $ONT_FLAG
+              --verbose
   else
-      log_start "Running GOTTCHA2 (fast-profile mode)..."
+      log_info "Running GOTTCHA2 (fast-profile mode)..."
       gottcha2 fast-profile \
               -i "$READ" \
               -t "$CPU" \
@@ -400,11 +398,11 @@ run_gottcha2() {
   if [[ $status -eq 0 ]]; then
     touch "$OUTDIR/$PREFIX.tsv"
     touch "$OUTDIR/$PREFIX.full.tsv"
-    log_success "GOTTCHA2 run finished: results in '$OUTDIR'."
+    log_info "GOTTCHA2 run finished: results in '$OUTDIR'."
     if ! grep -q "domain" "$OUTDIR/$PREFIX.full.tsv"; then
-      log_start "No GOTTCHA2 results found. Creating placeholder outputs for downstream steps..."
+      log_info "No GOTTCHA2 results found. Creating placeholder outputs for downstream steps..."
       create_placeholder_outputs || exit $?
-      log_success "Stopping pipeline."
+      log_info "Stopping pipeline."
       exit 0
     fi
   else
@@ -414,7 +412,7 @@ run_gottcha2() {
 }
 
 generate_krona_plot() {
-  log_start "Generating Krona plot..."
+  log_info "Generating Krona plot..."
   local status=0
   if grep -q "^species" "$OUTDIR/$PREFIX.tsv"; then
     grep "^species" "$OUTDIR/$PREFIX.tsv" \
@@ -425,7 +423,7 @@ generate_krona_plot() {
       || status=$?
   fi
   if [[ $status -eq 0 ]]; then
-    log_success "Krona plot generated: '$OUTDIR/$PREFIX.results_krona.html'."
+    log_info "Krona plot generated: '$OUTDIR/$PREFIX.results_krona.html'."
   else
     log_error "Krona plot generation failed (exit $status)."
   fi
@@ -433,7 +431,7 @@ generate_krona_plot() {
 }
 
 annotate_pathogens_qualified() {
-  log_start "Annotating pathogens for qualified taxa..."
+  log_info "Annotating pathogens for qualified taxa..."
   touch "$OUTDIR/$PREFIX.pathogen.tsv"
   pathogen.py \
     -i "$OUTDIR/$PREFIX.tsv" \
@@ -445,8 +443,8 @@ annotate_pathogens_qualified() {
   if [[ $status -eq 0 ]]; then
     # filter out empty pathogen annotations
     awk 'NR==1 || $13 != ""' "$OUTDIR/$PREFIX.taxonomy.tsv" > "$OUTDIR/$PREFIX.pathogen.tsv" || exit $?
-    log_success "Pathogen annotation completed: '$OUTDIR/$PREFIX.pathogen.tsv'."
-    log_success "Pathogen summary saved: '$OUTDIR/$PREFIX.pathogen.summary.txt'."
+    log_info "Pathogen annotation completed: '$OUTDIR/$PREFIX.pathogen.tsv'."
+    log_info "Pathogen summary saved: '$OUTDIR/$PREFIX.pathogen.summary.txt'."
   else
     log_error "Pathogen annotation for qualified taxa failed (exit $status)."
   fi
@@ -454,7 +452,7 @@ annotate_pathogens_qualified() {
 }
 
 annotate_pathogens_full() {
-  log_start "Annotating pathogens for all taxa..."
+  log_info "Annotating pathogens for all taxa..."
   touch "$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv"
   pathogen.py \
     -i "$OUTDIR/$PREFIX.full.tsv" \
@@ -464,7 +462,7 @@ annotate_pathogens_full() {
     -p "$SPADES_DATA/pathogen.tsv"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Pathogen annotation completed: '$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv'."
+    log_info "Pathogen annotation completed: '$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv'."
   else
     log_error "Pathogen annotation for all taxa failed (exit $status)."
   fi
@@ -472,7 +470,7 @@ annotate_pathogens_full() {
 }
 
 extract_summary_levels() {
-  log_start "Extracting genus and species level data for result viewer..."
+  log_info "Extracting genus and species level data for result viewer..."
   local summary="$OUTDIR/$PREFIX.pathogen.summary.tsv"
   local status=0
 
@@ -488,7 +486,7 @@ extract_summary_levels() {
   fi
 
   if [[ $status -eq 0 ]]; then
-    log_success "Genus and species level data extracted: '$summary'."
+    log_info "Genus and species level data extracted: '$summary'."
   else
     log_error "Genus/species data extraction failed (exit $status)."
   fi
@@ -496,14 +494,14 @@ extract_summary_levels() {
 }
 
 generate_result_viewer() {
-  log_start "Generating result viewer HTML..."
+  log_info "Generating result viewer HTML..."
 
   result_viewer.py \
     -i "$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv" \
     -o "$OUTDIR/$PREFIX.results_viewer.html"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Result viewer HTML generated: '$OUTDIR/$PREFIX.results_viewer.html'."
+    log_info "Result viewer HTML generated: '$OUTDIR/$PREFIX.results_viewer.html'."
   else
     log_error "Result viewer generation failed (exit $status)."
   fi
@@ -511,7 +509,7 @@ generate_result_viewer() {
 }
 
 generate_coverage_browser() {
-  log_start "Generating coverage browser HTML..."
+  log_info "Generating coverage browser HTML..."
   local bam="$OUTDIR/$PREFIX.gottcha_${DB_LEVEL}.bam"
   local bam_dir=""
   local status=0
@@ -544,7 +542,7 @@ generate_coverage_browser() {
   fi
 
   if [[ $status -eq 0 ]]; then
-    log_success "Coverage browser HTML generated: '$OUTDIR/$PREFIX.coverage_browser.html'."
+    log_info "Coverage browser HTML generated: '$OUTDIR/$PREFIX.coverage_browser.html'."
   else
     log_error "Coverage browser generation failed (exit $status)."
   fi
@@ -552,7 +550,7 @@ generate_coverage_browser() {
 }
 
 after_run() {
-  log_start "Writing pipeline metadata..."
+  log_info "Writing pipeline metadata..."
   INFO_FILE="$OUTDIR/$PREFIX.info"
   echo -e "SPADES_version=$VERSION" > "$INFO_FILE"
   fastp --version | sed 's/ /=/' >> "$INFO_FILE"
@@ -574,13 +572,13 @@ after_run() {
 
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_success "Pipeline metadata recorded: '$OUTDIR/$PREFIX.info'."
+    log_info "Pipeline metadata recorded: '$OUTDIR/$PREFIX.info'."
   else
     log_error "Failed to record pipeline metadata (exit $status)."
   fi
 
   # Organize output files: move all to intermediate_dir, then move final outputs back
-  log_start "Organizing output directory..."
+  log_info "Organizing output directory..."
   
   local intermediate_dir="$OUTDIR/intermediate"
   local results_html_dir="$OUTDIR/results_html"
@@ -615,23 +613,23 @@ after_run() {
   done
   
   if [[ $move_status -eq 0 ]]; then
-    log_success "Output files organized: final outputs in '$OUTDIR', intermediate files in '$intermediate_dir'."
+    log_info "Output files organized: final outputs in '$OUTDIR', intermediate files in '$intermediate_dir'."
   else
     log_error "Some files could not be moved (continuing anyway)."
   fi
   
   # If --clean flag is set, remove the intermediate directory entirely
   if [[ "$CLEAN_FLAG" == "true" ]]; then
-    log_start "Cleaning up intermediate files (--clean flag set)..."
+    log_info "Cleaning up intermediate files (--clean flag set)..."
     rm -rf "$intermediate_dir"
-    log_success "Intermediate files cleaned up."
+    log_info "Intermediate files cleaned up."
   fi
 
   return $status
 }
 
 run_pipeline() {
-  log_start "Starting SPADES workflow (v$VERSION)..."
+  log_info "Starting SPADES workflow (v$VERSION)..."
 
   ONT_FLAG=""
 
@@ -652,18 +650,21 @@ run_pipeline() {
     fi
   elif [[ "$SKIP_QC" == "true" ]]; then
     if [[ "$PAIRED" == "true" ]]; then
-      log_success "Skipping quality control step (--skip-qc flag set)."
+      log_warning "Skipping quality control step (--skip-qc flag set)."
     else
       READ="$INPUT"
-      log_success "Skipping quality control step (--skip-qc flag set)."
+      log_warning "Skipping quality control step (--skip-qc flag set)."
     fi
     if [[ "$ONT" == "true" ]]; then
       ONT_FLAG="-np -er $ONT_ERROR_RATE"
     fi
+  elif [[ "$PAIRED" == "true" ]] && is_fasta_file "$READ1" && is_fasta_file "$READ2"; then
+    SKIP_QC="true"
+    log_warning "FASTA input detected; skipping FASTQ quality filtering."
   elif [[ "$PAIRED" != "true" ]] && is_fasta_file "$INPUT"; then
     SKIP_QC="true"
     READ="$INPUT"
-    log_success "FASTA input detected; skipping FASTQ quality filtering."
+    log_warning "FASTA input detected; skipping FASTQ quality filtering."
     if [[ "$ONT" == "true" ]]; then
       ONT_FLAG="-np -er $ONT_ERROR_RATE"
     fi
@@ -701,7 +702,7 @@ run_pipeline() {
   generate_coverage_browser || exit $?
   after_run || exit $?
 
-  log_success "Pipeline completed successfully. All results are in '$OUTDIR'."
+  log_info "Pipeline completed successfully. All results are in '$OUTDIR'."
 }
 
 run_pipeline

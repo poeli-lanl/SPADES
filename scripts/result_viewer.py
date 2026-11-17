@@ -169,6 +169,32 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GOTTCHA2: REPORT_TITLE</title>
 
+  <script>
+    (function () {
+      var root = document.documentElement, stored = null;
+      try { stored = localStorage.getItem('spades-theme'); } catch (e) {}
+      var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+      function apply(theme) {
+        root.dataset.theme = theme;
+        root.dataset.bsTheme = theme;
+        root.classList.toggle('p-dark', theme === 'dark');
+        root.style.colorScheme = theme;
+        window.dispatchEvent(new CustomEvent('spades-theme', { detail: theme }));
+      }
+      window.spadesSetTheme = function (theme) {
+        try { localStorage.setItem('spades-theme', theme); } catch (e) {}
+        stored = theme;
+        apply(theme);
+      };
+      apply(stored === 'dark' || stored === 'light' ? stored : (media && media.matches ? 'dark' : 'light'));
+      if (media && media.addEventListener) {
+        media.addEventListener('change', function (event) {
+          if (stored !== 'dark' && stored !== 'light') apply(event.matches ? 'dark' : 'light');
+        });
+      }
+    })();
+  </script>
+
   <!-- D3.js v7 -->
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   
@@ -205,7 +231,72 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         --gold: #d89f2a;
         --blue: #3f7cac;
         --shadow: 0 18px 45px rgba(24, 33, 47, 0.08);
+        --shadow-soft: 0 8px 25px rgba(24, 33, 47, 0.05);
         --radius: 8px;
+        --accent-hover: #115e63;
+        --glass-soft: rgba(255, 255, 255, 0.78);
+        --glass: rgba(255, 255, 255, 0.9);
+        --table-head-bg: #edf4f1;
+        --table-ink: #263440;
+        --table-line: #edf1f4;
+        --table-hover: #f4faf8;
+        --table-sorted: #dfeeea;
+        --badge-yes-bg: #fde8df;
+        --badge-yes-ink: #a33d20;
+        --badge-watch-bg: #edf1f4;
+        --badge-watch-ink: #52616f;
+        --sankey-bg: #eef4f7;
+        --sankey-ink: #111827;
+        --sankey-halo: rgba(238, 244, 247, 0.82);
+        --sankey-axis: rgba(24, 33, 47, 0.58);
+        --tip-bg: rgba(255, 255, 255, 0.96);
+        --tip-border: rgba(24, 33, 47, 0.12);
+        --tip-shadow: 0 12px 30px rgba(24, 33, 47, 0.16);
+    }
+
+    :root[data-theme="dark"] {
+        --page-bg: #0e151c;
+        --surface: #16202a;
+        --surface-muted: #1b2833;
+        --ink: #e6edf3;
+        --muted: #94a5b5;
+        --line: #2b3a48;
+        --accent: #2a9aa1;
+        --accent-soft: #173a3e;
+        --accent-strong: #62cdd2;
+        --accent-hover: #1f7e84;
+        --coral: #ec7a57;
+        --gold: #e3b04b;
+        --blue: #5b9bcb;
+        --shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+        --shadow-soft: 0 8px 25px rgba(0, 0, 0, 0.35);
+        --glass-soft: rgba(22, 32, 42, 0.78);
+        --glass: rgba(22, 32, 42, 0.92);
+        --table-head-bg: #1d2b36;
+        --table-ink: #d5dee6;
+        --table-line: #243340;
+        --table-hover: #1c2a35;
+        --table-sorted: #1f3a40;
+        --badge-yes-bg: #4a2418;
+        --badge-yes-ink: #ffb199;
+        --badge-watch-bg: #26343f;
+        --badge-watch-ink: #b4c2cf;
+        --sankey-bg: #111b24;
+        --sankey-ink: #e6edf3;
+        --sankey-halo: rgba(17, 27, 36, 0.85);
+        --sankey-axis: rgba(230, 237, 243, 0.55);
+        --tip-bg: rgba(27, 40, 51, 0.97);
+        --tip-border: rgba(230, 237, 243, 0.16);
+        --tip-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+
+        --p-content-background: var(--surface);
+        --p-content-border-color: var(--line);
+        --p-text-color: var(--ink);
+        --p-text-muted-color: var(--muted);
+        --p-form-field-background: var(--surface);
+        --p-form-field-border-color: var(--line);
+        --p-overlay-select-background: var(--surface-muted);
+        --p-overlay-select-border-color: var(--line);
     }
 
     * {
@@ -254,7 +345,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     .report-header h1 {
         max-width: 100%;
-        color: var(--text);
+        color: var(--ink);
         margin: 0;
         font-size: 30px;
         font-weight: 760;
@@ -285,7 +376,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         min-height: 30px;
         border: 1px solid var(--line);
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.78);
+        background: var(--glass-soft);
         color: var(--muted);
         font-size: 0.83rem;
         font-weight: 700;
@@ -309,7 +400,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         border: 1px solid var(--line);
         border-radius: var(--radius);
         background: var(--surface);
-        box-shadow: 0 8px 25px rgba(24, 33, 47, 0.05);
+        box-shadow: var(--shadow-soft);
         padding: 16px;
     }
 
@@ -338,7 +429,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .panel {
         border: 1px solid var(--line);
         border-radius: var(--radius);
-        background: rgba(255, 255, 255, 0.9);
+        background: var(--glass);
         box-shadow: var(--shadow);
     }
 
@@ -484,8 +575,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     .icon-button--primary:hover {
-        border-color: var(--accent-strong);
-        background: var(--accent-strong);
+        border-color: var(--accent-hover);
+        background: var(--accent-hover);
         color: #ffffff;
     }
 
@@ -524,7 +615,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         width: 100%;
         height: clamp(440px, 60vh, 790px);
         overflow: hidden;
-        background: #eef4f7;
+        background: var(--sankey-bg);
     }
 
     #sankey svg {
@@ -564,15 +655,19 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         stroke-width: 2.2px;
     }
 
+    .tax-flow-bg {
+        fill: var(--sankey-bg);
+    }
+
     .tax-flow-label,
     .tax-flow-value,
     .tax-flow-toggle,
     .tax-flow-axis text {
-        fill: #111827;
+        fill: var(--sankey-ink);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         letter-spacing: 0;
         paint-order: stroke;
-        stroke: rgba(238, 244, 247, 0.82);
+        stroke: var(--sankey-halo);
         stroke-linejoin: round;
         stroke-width: 3px;
     }
@@ -596,7 +691,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     .tax-flow-axis line,
     .tax-flow-axis path {
-        stroke: rgba(24, 33, 47, 0.58);
+        stroke: var(--sankey-axis);
         stroke-width: 1;
         shape-rendering: crispEdges;
     }
@@ -616,10 +711,10 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         z-index: 5;
         max-width: 280px;
         pointer-events: none;
-        border: 1px solid rgba(24, 33, 47, 0.12);
+        border: 1px solid var(--tip-border);
         border-radius: 7px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 12px 30px rgba(24, 33, 47, 0.16);
+        background: var(--tip-bg);
+        box-shadow: var(--tip-shadow);
         color: var(--ink);
         font-size: 0.78rem;
         line-height: 1.35;
@@ -702,26 +797,26 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 
     .p-datatable-table .p-datatable-thead > tr > th {
         border-color: var(--line);
-        background: #edf4f1;
-        color: #263440;
+        background: var(--table-head-bg);
+        color: var(--table-ink);
         font-size: 0.78rem;
         font-weight: 800;
         white-space: nowrap;
     }
 
     .p-datatable-table .p-datatable-tbody > tr > td {
-        border-color: #edf1f4;
-        color: #263440;
+        border-color: var(--table-line);
+        color: var(--table-ink);
         font-size: 0.84rem;
         white-space: nowrap;
     }
 
     .p-datatable-table .p-datatable-tbody > tr:hover {
-        background: #f4faf8;
+        background: var(--table-hover);
     }
 
     .p-datatable .p-sortable-column.p-highlight {
-        background: #dfeeea;
+        background: var(--table-sorted);
         color: var(--accent-strong);
     }
 
@@ -804,13 +899,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     .pathogen-badge--yes {
-        background: #fde8df;
-        color: #a33d20;
+        background: var(--badge-yes-bg);
+        color: var(--badge-yes-ink);
     }
 
     .pathogen-badge--watch {
-        background: #edf1f4;
-        color: #52616f;
+        background: var(--badge-watch-bg);
+        color: var(--badge-watch-ink);
     }
 
     .empty-state {
@@ -831,7 +926,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         max-height: 500px;
         overflow: auto;
         display: block;
-        background: #ffffff;
+        background: var(--surface);
         color: var(--ink);
     }
 
@@ -851,7 +946,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     }
 
     .tooltip-inner thead th {
-        background: #edf4f1;
+        background: var(--table-head-bg);
         color: var(--ink);
         font-weight: 800;
     }
@@ -921,6 +1016,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
                     option-value="value"
                     aria-label="View mode"
                 ></p-select-button>
+                <button type="button" class="icon-button" @click="toggleTheme" :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+                    <i class="pi" :class="isDark ? 'pi-sun' : 'pi-moon'"></i>
+                </button>
                 <button type="button" class="icon-button" @click="resetFilters" title="Reset filters">
                     <i class="pi pi-refresh"></i>
                     <span>Reset</span>
@@ -1174,6 +1272,11 @@ function initVueApp() {
                 global: { value: null, matchMode: 'contains' }
             });
             const activeView = ref('all');
+            const isDark = ref(document.documentElement.dataset.theme === 'dark');
+            window.addEventListener('spades-theme', event => { isDark.value = event.detail === 'dark'; });
+            function toggleTheme() {
+                window.spadesSetTheme(isDark.value ? 'light' : 'dark');
+            }
             const viewOptions = [
                 { label: 'All', value: 'all' },
                 { label: 'Flow', value: 'flow' },
@@ -1412,6 +1515,8 @@ function initVueApp() {
                 tableData,
                 filters,
                 activeView,
+                isDark,
+                toggleTheme,
                 viewOptions,
                 globalFilterFields,
                 selectedLevels,
@@ -1444,7 +1549,8 @@ function initVueApp() {
 
     app.use(PrimeVue.Config, {
         theme: {
-            preset: PrimeUIX.Themes.Aura
+            preset: PrimeUIX.Themes.Aura,
+            options: { darkModeSelector: '.p-dark' }
         }
     });
 
@@ -1936,7 +2042,7 @@ function renderTaxonomicFlow(selectedRows, contextRows = selectedRows) {
   svg.append('rect')
     .attr('width', width)
     .attr('height', height)
-    .attr('fill', '#eef4f7');
+    .attr('class', 'tax-flow-bg');
 
   const tooltip = d3.select(container).append('div').attr('class', 'tax-flow-tooltip');
 

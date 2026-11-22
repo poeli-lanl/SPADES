@@ -37,7 +37,7 @@ class FakeStreamSpades(stream_spades.StreamSpades):
                 bam = intermediate / f"{prefix}.gottcha_species.bam"
                 bam.write_bytes(b"" if self.no_alignments else source.read_bytes())
                 Path(f"{bam}.bai").touch()
-                if not self.no_alignments:
+                if not self.no_alignments and "--sensitive" not in command:
                     from pysam import BGZFile
 
                     with BGZFile(
@@ -204,6 +204,56 @@ class StreamSpadesTests(unittest.TestCase):
 
         self.assertFalse(parser.parse_args(required).skip_qc)
         self.assertTrue(parser.parse_args([*required, "--skip-qc"]).skip_qc)
+
+    def test_sensitive_is_parsed_validated_and_forwarded(self):
+        parser = stream_spades.build_parser()
+        required = [
+            "-i", str(self.input_dir), "-o", str(self.output_dir),
+            "-p", "stream", "-d", f"{self.database}.mmi",
+            "--run-spades", str(self.run_spades),
+        ]
+        for suffix in (".mmi", ".stats", ".tax.tsv"):
+            Path(f"{self.database}{suffix}").touch()
+        self.assertFalse(parser.parse_args(required).sensitive)
+        args = parser.parse_args([*required, "--sensitive"])
+        stream_spades.validate_args(args)
+        runner = FakeStreamSpades(args)
+        command = runner._spades_base_command(self.output_dir, "test")
+        self.assertIn("--sensitive", command)
+        self.assertEqual(command[command.index("-d") + 1], str(self.database.resolve()))
+        Path(f"{self.database}.mmi").unlink()
+        with self.assertRaisesRegex(ValueError, r"\.mmi"):
+            stream_spades.validate_args(args)
+
+    def test_sensitive_batches_merge_and_resume_without_sylph_fasta(self):
+        self.args.sensitive = True
+        (self.input_dir / "first.fq").write_bytes(b"first\n")
+        runner = FakeStreamSpades(self.args)
+        runner.run()
+        (self.input_dir / "second.fq").write_bytes(b"second\n")
+        resumed = FakeStreamSpades(self.args)
+        resumed.run()
+        cumulative = self.output_dir / "cumulative" / "stream.gottcha_species.bam"
+        self.assertEqual(cumulative.read_bytes(), b"first\nsecond\n")
+        self.assertEqual(len(resumed.state["batches"]), 2)
+        self.assertEqual(resumed.state["cumulative_fasta"], "")
+        self.assertFalse(list(self.output_dir.rglob("*.sylph_extracted.fa.bgz")))
+
+    def test_stream_rejects_changing_profiling_mode(self):
+        runner = FakeStreamSpades(self.args)
+        runner._save_state()
+        self.args.sensitive = True
+        with self.assertRaisesRegex(RuntimeError, "profiling mode"):
+            FakeStreamSpades(self.args)
+
+    def test_legacy_stream_state_defaults_to_fast_profile(self):
+        runner = FakeStreamSpades(self.args)
+        runner._save_state()
+        state = json.loads(runner.state_path.read_text())
+        del state["configuration"]["sensitive"]
+        runner.state_path.write_text(json.dumps(state))
+        resumed = FakeStreamSpades(self.args)
+        self.assertFalse(resumed.state["configuration"]["sensitive"])
 
     def test_auto_skip_qc_ratio_is_validated_and_forwarded(self):
         parser = stream_spades.build_parser()

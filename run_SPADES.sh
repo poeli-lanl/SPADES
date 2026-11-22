@@ -19,6 +19,7 @@ Usage:
     [--auto-skip-qc-ratio <ratio>] \
     [--ont] \
     [--ont-error-rate <float>] \
+    [--sensitive] \
     [--clean]
 
 Input:
@@ -38,6 +39,7 @@ Optional:
   --min-depth         Minimum depth for variant calling (default: 10)
   --ont               Treat reads/BAM as ONT data; read input is split to 150bp
   --ont-error-rate    Error rate for ONT reads (passed to gottcha2 -er), default: 0.03
+  --sensitive         Use standard gottcha2 profile mode (requires a .mmi database)
   --skip-qc           Skip fastp/fastplong quality control and preprocessing steps
   --auto-skip-qc-ratio
                       Use original reads when QC retains less than this fraction (default: 0.2)
@@ -60,6 +62,7 @@ PREFIX=""
 DB_PATH=""
 CPU="1"
 ONT="false"
+SENSITIVE="false"
 SPADES_DATA="$CWD/data"
 ONT_FLAG=""
 ONT_ERROR_RATE="0.03"
@@ -89,6 +92,7 @@ while [[ $# -gt 0 ]]; do
     -t|--cpu)          CPU="${2:-}"; shift 2 ;;
     --spades-data)     SPADES_DATA="${2:-}"; shift 2 ;;
     --ont)             ONT="true"; shift ;;
+    --sensitive)       SENSITIVE="true"; shift ;;
     --ont-error-rate)  ONT_ERROR_RATE="${2:-}"; shift 2 ;;
     --skip-qc)         SKIP_QC="true"; shift ;;
     --auto-skip-qc-ratio)
@@ -154,12 +158,17 @@ fi
 [[ -n "$PREFIX" ]]          || { echo "ERROR: missing --prefix" >&2; usage; exit 2; }
 [[ -n "$DB_PATH" ]]         || { echo "ERROR: missing --db-path" >&2; usage; exit 2; }
 DB_PATH="${DB_PATH%.syldb}"
+DB_PATH="${DB_PATH%.mmi}"
 DB_PATH="${DB_PATH%.zip}"
 DB_PATH="${DB_PATH%.stats}"
 DB_PATH="${DB_PATH%.tax.tsv}"
 if [[ "$BAM_MODE" != "true" ]]; then
-  [[ -f "$DB_PATH.syldb" ]] || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
-  [[ -f "$DB_PATH.zip" ]]   || { echo "ERROR: GOTTCHA2 signature archive not found: $DB_PATH.zip" >&2; exit 2; }
+  if [[ "$SENSITIVE" == "true" ]]; then
+    [[ -f "$DB_PATH.mmi" ]] || { echo "ERROR: GOTTCHA2 standard database index not found: $DB_PATH.mmi" >&2; exit 2; }
+  else
+    [[ -f "$DB_PATH.syldb" ]] || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
+    [[ -f "$DB_PATH.zip" ]]   || { echo "ERROR: GOTTCHA2 signature archive not found: $DB_PATH.zip" >&2; exit 2; }
+  fi
 fi
 [[ -f "$DB_PATH.tax.tsv" ]] || { echo "ERROR: GOTTCHA2 taxonomy file not found: $DB_PATH.tax.tsv" >&2; exit 2; }
 [[ -f "$DB_PATH.stats" ]]   || { echo "ERROR: GOTTCHA2 stats file not found: $DB_PATH.stats" >&2; exit 2; }
@@ -346,6 +355,10 @@ auto_skip_qc_if_needed() {
 }
 
 run_gottcha2() {
+  local profile_args=(fast-profile --fast-min-kmer 5)
+  if [[ "$SENSITIVE" == "true" ]]; then
+    profile_args=(profile)
+  fi
   if [[ "$BAM_MODE" == "true" ]]; then
       log_info "Re-running GOTTCHA2 profiling from existing BAM..."
       gottcha2 profile \
@@ -362,8 +375,8 @@ run_gottcha2() {
               --verbose \
               $ONT_FLAG
   elif [[ "$PAIRED" == "true" ]]; then
-      log_info "Running GOTTCHA2 (fast-profile mode)..."
-      gottcha2 fast-profile \
+      log_info "Running GOTTCHA2 (${profile_args[0]} mode)..."
+      gottcha2 "${profile_args[@]}" \
               -i "$READ1" "$READ2" \
               -t "$CPU" \
               -o "$OUTDIR" \
@@ -372,13 +385,12 @@ run_gottcha2() {
               -r "GENOMIC_CONTENT_EST" \
               -mf 0.9 \
               -mg 90 \
-              --fast-min-kmer 5 \
               --mpa \
               -ss 0.85,0.95,0.99 \
               --verbose
   else
-      log_info "Running GOTTCHA2 (fast-profile mode)..."
-      gottcha2 fast-profile \
+      log_info "Running GOTTCHA2 (${profile_args[0]} mode)..."
+      gottcha2 "${profile_args[@]}" \
               -i "$READ" \
               -t "$CPU" \
               -o "$OUTDIR" \
@@ -387,7 +399,6 @@ run_gottcha2() {
               -r "GENOMIC_CONTENT_EST" \
               -mf 0.9 \
               -mg 0 \
-              --fast-min-kmer 5 \
               --mpa \
               -ss 0.85,0.95,0.99 \
               --verbose \

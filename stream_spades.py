@@ -159,7 +159,7 @@ def file_signature(path: Path) -> Dict[str, Any]:
 
 def database_base(path: Path) -> Path:
     value = str(path)
-    for suffix in (".tax.tsv", ".syldb", ".stats", ".zip"):
+    for suffix in (".tax.tsv", ".syldb", ".mmi", ".stats", ".zip"):
         if value.endswith(suffix):
             value = value[: -len(suffix)]
             break
@@ -241,6 +241,7 @@ class StreamSpades:
                 "input_dir": str(self.input_dir),
                 "database": str(self.database),
                 "prefix": self.args.prefix,
+                "sensitive": getattr(self.args, "sensitive", False),
             },
             "next_batch": 1,
             "files": {},
@@ -264,10 +265,11 @@ class StreamSpades:
                 f"Unsupported state version in {self.state_path}: {state.get('version')}"
             )
         expected = self._initial_state()["configuration"]
+        state.get("configuration", {}).setdefault("sensitive", False)
         if state.get("configuration") != expected:
             raise RuntimeError(
                 "The existing stream state belongs to a different input directory, "
-                "database, or prefix. Choose another --outdir or restore the original options."
+                "database, prefix, or profiling mode. Choose another --outdir or restore the original options."
             )
         self._normalize_legacy_timestamps(state)
         return state
@@ -762,6 +764,8 @@ class StreamSpades:
             command.extend(["--spades-data", str(self.args.spades_data.resolve())])
         if getattr(self.args, "skip_qc", False):
             command.append("--skip-qc")
+        if getattr(self.args, "sensitive", False):
+            command.append("--sensitive")
         return command
 
     @staticmethod
@@ -938,8 +942,9 @@ class StreamSpades:
 
         chunk_bam = self._find_chunk_bam(chunk_dir, chunk_prefix)
         valid_chunk_bam = self._bam_is_valid(chunk_bam)
+        sensitive = getattr(self.args, "sensitive", False)
         chunk_fasta = self._find_chunk_fasta(chunk_dir, chunk_prefix)
-        if valid_chunk_bam and not self._fasta_is_valid(chunk_fasta):
+        if not sensitive and valid_chunk_bam and not self._fasta_is_valid(chunk_fasta):
             raise RuntimeError(
                 f"Valid chunk BAM has no valid Sylph-extracted FASTA: {chunk_fasta}"
             )
@@ -955,7 +960,7 @@ class StreamSpades:
             if inferred_fasta.is_file():
                 previous_fasta_text = str(inferred_fasta)
         previous_fasta = Path(previous_fasta_text) if previous_fasta_text else None
-        if previous_bam is not None and not self._fasta_is_valid(previous_fasta):
+        if not sensitive and previous_bam is not None and not self._fasta_is_valid(previous_fasta):
             raise RuntimeError(
                 "Saved cumulative BAM has no valid cumulative Sylph-extracted FASTA; "
                 "rebuild the streaming output to call variants cumulatively"
@@ -1020,28 +1025,29 @@ class StreamSpades:
                     self._relative_path(candidate),
                 )
 
-            candidate_fasta = batch_dir / "candidate.sylph_extracted.fa.bgz"
-            cumulative_fasta = (
-                self.output_dir
-                / "cumulative"
-                / f"{self.args.prefix}.sylph_extracted.fa.bgz"
-            )
-            fasta_inputs = []
-            if previous_fasta is not None:
-                fasta_inputs.append(previous_fasta)
-            if valid_chunk_bam and chunk_fasta is not None:
-                fasta_inputs.append(chunk_fasta)
-            self._merge_fastas(fasta_inputs, candidate_fasta)
-            if not self._fasta_is_valid(candidate_fasta):
-                raise RuntimeError(
-                    f"Merged Sylph-extracted FASTA failed validation: {candidate_fasta}"
+            if not sensitive:
+                candidate_fasta = batch_dir / "candidate.sylph_extracted.fa.bgz"
+                cumulative_fasta = (
+                    self.output_dir
+                    / "cumulative"
+                    / f"{self.args.prefix}.sylph_extracted.fa.bgz"
                 )
-            else:
-                logging.info(
-                    "Merged cumulative Sylph-extracted FASTA for batch %s: %s",
-                    sequence,
-                    self._relative_path(candidate_fasta),
-                )
+                fasta_inputs = []
+                if previous_fasta is not None:
+                    fasta_inputs.append(previous_fasta)
+                if valid_chunk_bam and chunk_fasta is not None:
+                    fasta_inputs.append(chunk_fasta)
+                self._merge_fastas(fasta_inputs, candidate_fasta)
+                if not self._fasta_is_valid(candidate_fasta):
+                    raise RuntimeError(
+                        f"Merged Sylph-extracted FASTA failed validation: {candidate_fasta}"
+                    )
+                else:
+                    logging.info(
+                        "Merged cumulative Sylph-extracted FASTA for batch %s: %s",
+                        sequence,
+                        self._relative_path(candidate_fasta),
+                    )
 
             profile_dir.mkdir(parents=True)
             profile_reference = (
@@ -1049,7 +1055,8 @@ class StreamSpades:
             )
             # BAM mode discovers its variant-calling reference by this output name.
             # A hard link exposes the merged FASTA without copying it.
-            os.link(candidate_fasta, profile_reference)
+            if candidate_fasta is not None:
+                os.link(candidate_fasta, profile_reference)
             profile_command = self._spades_base_command(profile_dir, profile_prefix)
             profile_command[1:1] = ["-b", str(candidate)]
             try:
@@ -1286,6 +1293,10 @@ same command again to resume.
         help="Minimum variant-calling depth passed to run_SPADES.sh (default: %(default)s)",
     )
     parser.add_argument(
+        "--sensitive", action="store_true",
+        help="Use standard gottcha2 profile mode with a .mmi database",
+    )
+    parser.add_argument(
         "--skip-qc", action="store_true",
         help=(
             "Skip fastp/fastplong quality control and preprocessing; count reads "
@@ -1331,7 +1342,8 @@ def validate_args(args: argparse.Namespace) -> None:
     if not args.run_spades.is_file():
         raise ValueError(f"run_SPADES.sh not found: {args.run_spades}")
     database = str(database_base(args.db_path))
-    for suffix in (".syldb", ".zip", ".stats", ".tax.tsv"):
+    indexes = (".mmi",) if args.sensitive else (".syldb", ".zip")
+    for suffix in (*indexes, ".stats", ".tax.tsv"):
         if not Path(f"{database}{suffix}").is_file():
             raise ValueError(f"Database file not found: {database}{suffix}")
 

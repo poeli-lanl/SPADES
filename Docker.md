@@ -61,6 +61,8 @@ Notes:
   - `<db>.tax.tsv`
 - The image already contains `data/taxonomy_db` and `data/pathogen.tsv`.
 - Add `--ont` to `run_SPADES.sh` for long-read single-end inputs.
+- Add `--sensitive` to use `gottcha2 profile`; this requires `<db>.mmi`,
+  `<db>.stats`, and `<db>.tax.tsv` instead of the fast-profile database files.
 - Use `--js-external` unless the HTML reports will be served from an environment
   that provides the local `/publicdata` JavaScript/CSS assets.
 

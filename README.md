@@ -8,7 +8,7 @@ The SPADES (Sequence-based Pathogen-Agnostic Diagnostics/Detection Solution) pro
 
 - Conda or mamba (recommended)
 - Dependencies in `environment.yml` (python 3.12, minimap2, krona, samtools, etc.)
-- A GOTTCHA2 database (`.syldb`, `.zip`, `.stats`, `.tax.tsv` for read input; `.stats` and `.tax.tsv` for existing-BAM input)
+- A GOTTCHA2 database (`.syldb`, `.zip`, `.stats`, `.tax.tsv` for default read input; `.mmi`, `.stats`, `.tax.tsv` with `--sensitive`; `.stats` and `.tax.tsv` for existing-BAM input)
 - Taxonomy and pathogen data (provided in `data/`)
 - Minimal hardware: 4 CPU cores, 24 GB RAM, 100 GB disk space
 
@@ -41,9 +41,9 @@ build commands.
 
 > **Warning:** If you downloaded the database before October 27, 2026 (`20261027`), we recommend downloading an updated version from the [SPADES database download page](https://ref-db.edgebioinformatics.org/spades-g2/).
 
-The [**SPADES database**](https://ref-db.edgebioinformatics.org/spades-g2/) is available for download [here](https://ref-db.edgebioinformatics.org/spades-g2/). The script to start SPADES, `run_SPADES.sh`, uses `gottcha2 fast-profile`. The database path passed with
+The [**SPADES database**](https://ref-db.edgebioinformatics.org/spades-g2/) is available for download [here](https://ref-db.edgebioinformatics.org/spades-g2/). The script to start SPADES, `run_SPADES.sh`, uses `gottcha2 fast-profile` by default. Add `--sensitive` to use the standard mode, `gottcha2 profile`. The database path passed with
 `-d/--db-path` accepts the database base path or a path ending in `.syldb`,
-`.zip`, `.stats`, or `.tax.tsv`. For read input, these files must exist next
+`.mmi`, `.zip`, `.stats`, or `.tax.tsv`. For default read input, these files must exist next
 to the base path:
 
 - `<db>.syldb`
@@ -51,8 +51,10 @@ to the base path:
 - `<db>.stats`
 - `<db>.tax.tsv`
 
-Existing-BAM mode requires only `<db>.stats` and `<db>.tax.tsv`. The database
-level is detected from the base filename or the `.stats` file.
+With `--sensitive`, read input requires `<db>.mmi`, `<db>.stats`, and
+`<db>.tax.tsv` instead. Existing-BAM mode requires only `<db>.stats` and
+`<db>.tax.tsv`. The database level is detected from the base filename or the
+`.stats` file.
 
 ## Usage
 
@@ -66,6 +68,7 @@ level is detected from the base filename or the `.stats` file.
   [--spades-data data/] \
   [--ont] \
   [--ont-error-rate 0.03] \
+  [--sensitive] \
   [--min-depth 10] \
   [--skip-qc] \
   [--auto-skip-qc-ratio 0.2] \
@@ -108,6 +111,7 @@ Options:
 - `--spades-data` Directory containing `taxonomy_db/` and `pathogen.tsv` (default: `data/`)
 - `--ont` Treat reads or BAM as ONT data; uses `fastplong` for FASTQ QC (unless skipped) and passes ONT profiling flags to GOTTCHA2
 - `--ont-error-rate` Error rate for ONT reads passed to GOTTCHA2 (`-er`), default: `0.03`
+- `--sensitive` Use standard `gottcha2 profile` instead of `fast-profile` for read input; requires a `.mmi` database
 - `--clean` Remove intermediate files after the run (see Outputs section for details)
 - `--min-depth` Minimum depth for variant calling (default: 10)
 - `--skip-qc` Skip fastp/fastplong quality control and preprocessing steps
@@ -218,6 +222,11 @@ reads** is shown as `—` instead of repeating the input count.
 The monitor also accepts `--auto-skip-qc-ratio` (default: `0.2`) and forwards it
 to `run_SPADES.sh`. If this fallback uses original reads, **Post-QC reads**
 still reports the number retained by QC, rather than the number used downstream.
+
+Use `--sensitive` with a standard `.mmi` database to run `gottcha2 profile`
+for each arriving file. Choose a separate output directory when changing
+profiling modes. Standard mode does not produce a Sylph reference FASTA, so
+coverage reports omit variant calling when no reference FASTA or VCF is available.
 
 Per-batch working files are removed after successful processing by default.
 Use `--keep-batches` when chunk and staged profile files are needed for

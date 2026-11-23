@@ -781,7 +781,7 @@ class StreamSpades:
 
     @staticmethod
     def _find_chunk_fasta(chunk_dir: Path, chunk_prefix: str) -> Optional[Path]:
-        filename = f"{chunk_prefix}.sylph_extracted.fa.bgz"
+        filename = f"{chunk_prefix}.sig_extracted.fa.bgz"
         candidates = [
             path
             for path in (chunk_dir / filename, chunk_dir / "intermediate" / filename)
@@ -955,7 +955,7 @@ class StreamSpades:
         previous_fasta_text = self.state.get("cumulative_fasta", "")
         if previous_bam is not None and not previous_fasta_text:
             inferred_fasta = (
-                self.output_dir / "cumulative" / f"{self.args.prefix}.sylph_extracted.fa.bgz"
+                self.output_dir / "cumulative" / f"{self.args.prefix}.sig_extracted.fa.bgz"
             )
             if inferred_fasta.is_file():
                 previous_fasta_text = str(inferred_fasta)
@@ -1026,11 +1026,11 @@ class StreamSpades:
                 )
 
             if not sensitive:
-                candidate_fasta = batch_dir / "candidate.sylph_extracted.fa.bgz"
+                candidate_fasta = batch_dir / "candidate.sig_extracted.fa.bgz"
                 cumulative_fasta = (
                     self.output_dir
                     / "cumulative"
-                    / f"{self.args.prefix}.sylph_extracted.fa.bgz"
+                    / f"{self.args.prefix}.sig_extracted.fa.bgz"
                 )
                 fasta_inputs = []
                 if previous_fasta is not None:
@@ -1051,7 +1051,7 @@ class StreamSpades:
 
             profile_dir.mkdir(parents=True)
             profile_reference = (
-                profile_dir / f"{profile_prefix}.sylph_extracted.fa.bgz"
+                profile_dir / f"{profile_prefix}.sig_extracted.fa.bgz"
             )
             # BAM mode discovers its variant-calling reference by this output name.
             # A hard link exposes the merged FASTA without copying it.

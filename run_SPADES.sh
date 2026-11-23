@@ -19,7 +19,7 @@ Usage:
     [--auto-skip-qc-ratio <ratio>] \
     [--ont] \
     [--ont-error-rate <float>] \
-    [--sensitive] \
+    [--detection] \
     [--clean]
 
 Input:
@@ -39,7 +39,7 @@ Optional:
   --min-depth         Minimum depth for variant calling (default: 10)
   --ont               Treat reads/BAM as ONT data; read input is split to 150bp
   --ont-error-rate    Error rate for ONT reads (passed to gottcha2 -er), default: 0.03
-  --sensitive         Use standard gottcha2 profile mode (requires a .mmi database)
+  --detection         Use standard gottcha2 profile mode (requires a .mmi database)
   --skip-qc           Skip fastp/fastplong quality control and preprocessing steps
   --auto-skip-qc-ratio
                       Use original reads when QC retains less than this fraction (default: 0.2)
@@ -62,7 +62,7 @@ PREFIX=""
 DB_PATH=""
 CPU="1"
 ONT="false"
-SENSITIVE="false"
+DETECTION="false"
 SPADES_DATA="$CWD/data"
 ONT_FLAG=""
 ONT_ERROR_RATE="0.03"
@@ -92,7 +92,7 @@ while [[ $# -gt 0 ]]; do
     -t|--cpu)          CPU="${2:-}"; shift 2 ;;
     --spades-data)     SPADES_DATA="${2:-}"; shift 2 ;;
     --ont)             ONT="true"; shift ;;
-    --sensitive)       SENSITIVE="true"; shift ;;
+    --detection)       DETECTION="true"; shift ;;
     --ont-error-rate)  ONT_ERROR_RATE="${2:-}"; shift 2 ;;
     --skip-qc)         SKIP_QC="true"; shift ;;
     --auto-skip-qc-ratio)
@@ -158,7 +158,7 @@ fi
 [[ -n "$PREFIX" ]]          || { echo "ERROR: missing --prefix" >&2; usage; exit 2; }
 [[ -n "$DB_PATH" ]]         || { echo "ERROR: missing --db-path" >&2; usage; exit 2; }
 if [[ "$BAM_MODE" != "true" ]]; then
-  if [[ "$SENSITIVE" == "true" ]]; then
+  if [[ "$DETECTION" == "true" ]]; then
     [[ -f "$DB_PATH.mmi" ]] || { echo "ERROR: GOTTCHA2 standard database index not found: $DB_PATH.mmi" >&2; exit 2; }
   else
     [[ -f "$DB_PATH.syldb" ]] || { echo "ERROR: GOTTCHA2 fast-profile database index not found: $DB_PATH.syldb" >&2; exit 2; }
@@ -350,25 +350,30 @@ auto_skip_qc_if_needed() {
 }
 
 run_gottcha2() {
-  local profile_args=(fast-profile --fast-min-kmer 5)
-  if [[ "$SENSITIVE" == "true" ]]; then
-    profile_args=(profile)
+  # default using fast-profile mode
+  local profile_args=(fast-profile --fast-min-kmer 5 -ss 0.85,0.95,0.99)
+
+  if [[ "$DETECTION" == "true" ]]; then
+      profile_args=(profile -ss 0.5,0.7,0.99)
   fi
+
+  if [[ "$ONT" == "true" ]]; then
+      profile_args+=(-mf 0 -mg 60 -np -er $ONT_ERROR_RATE)
+  else
+      profile_args+=(-mf 0.9 -mg 0)
+  fi
+
   if [[ "$BAM_MODE" == "true" ]]; then
       log_info "Re-running GOTTCHA2 profiling from existing BAM..."
-      gottcha2 profile \
+      gottcha2 "${profile_args[@]}" \
               -b "$BAM_INPUT" \
               -t "$CPU" \
               -o "$OUTDIR" \
               -p "$PREFIX" \
               -d "$DB_PATH" \
               -r "GENOMIC_CONTENT_EST" \
-              -mf 0 \
-              -mg 90 \
               --mpa \
-              -ss 0.85,0.95,0.99 \
-              --verbose \
-              $ONT_FLAG
+              --verbose
   elif [[ "$PAIRED" == "true" ]]; then
       log_info "Running GOTTCHA2 (${profile_args[0]} mode)..."
       gottcha2 "${profile_args[@]}" \
@@ -378,13 +383,11 @@ run_gottcha2() {
               -p "$PREFIX" \
               -d "$DB_PATH" \
               -r "GENOMIC_CONTENT_EST" \
-              -mf 0.9 \
-              -mg 90 \
               --mpa \
-              -ss 0.85,0.95,0.99 \
               --verbose
   else
       log_info "Running GOTTCHA2 (${profile_args[0]} mode)..."
+
       gottcha2 "${profile_args[@]}" \
               -i "$READ" \
               -t "$CPU" \
@@ -392,12 +395,8 @@ run_gottcha2() {
               -p "$PREFIX" \
               -d "$DB_PATH" \
               -r "GENOMIC_CONTENT_EST" \
-              -mf 0.9 \
-              -mg 0 \
               --mpa \
-              -ss 0.85,0.95,0.99 \
-              --verbose \
-              $ONT_FLAG
+              --verbose
   fi
 
   local status=$?
@@ -439,6 +438,7 @@ generate_krona_plot() {
 annotate_pathogens_qualified() {
   log_info "Annotating pathogens for qualified taxa..."
   touch "$OUTDIR/$PREFIX.pathogen.tsv"
+  touch "$OUTDIR/$PREFIX.taxonomy.tsv"
   pathogen.py \
     -i "$OUTDIR/$PREFIX.tsv" \
     -o "$OUTDIR/$PREFIX.taxonomy.tsv" \
@@ -638,8 +638,6 @@ after_run() {
 run_pipeline() {
   log_info "Starting SPADES workflow (v$VERSION)..."
 
-  ONT_FLAG=""
-
   if [[ "$BAM_MODE" == "true" ]]; then
     :
   elif [[ "$PAIRED" == "true" ]]; then
@@ -652,18 +650,13 @@ run_pipeline() {
   prepare_output_dir || exit $?
 
   if [[ "$BAM_MODE" == "true" ]]; then
-    if [[ "$ONT" == "true" ]]; then
-      ONT_FLAG="-np -er $ONT_ERROR_RATE"
-    fi
+    :
   elif [[ "$SKIP_QC" == "true" ]]; then
     if [[ "$PAIRED" == "true" ]]; then
       log_warning "Skipping quality control step (--skip-qc flag set)."
     else
       READ="$INPUT"
       log_warning "Skipping quality control step (--skip-qc flag set)."
-    fi
-    if [[ "$ONT" == "true" ]]; then
-      ONT_FLAG="-np -er $ONT_ERROR_RATE"
     fi
   elif [[ "$PAIRED" == "true" ]] && is_fasta_file "$READ1" && is_fasta_file "$READ2"; then
     SKIP_QC="true"
@@ -672,13 +665,9 @@ run_pipeline() {
     SKIP_QC="true"
     READ="$INPUT"
     log_warning "FASTA input detected; skipping FASTQ quality filtering."
-    if [[ "$ONT" == "true" ]]; then
-      ONT_FLAG="-np -er $ONT_ERROR_RATE"
-    fi
   elif [[ "$ONT" == "true" ]]; then
     fastplong_qc || exit $?
     auto_skip_qc_if_needed || exit $?
-    ONT_FLAG="-np -er $ONT_ERROR_RATE"
   else
     fastp_qc || exit $?
     auto_skip_qc_if_needed || exit $?

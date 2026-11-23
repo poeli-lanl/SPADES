@@ -241,7 +241,7 @@ class StreamSpades:
                 "input_dir": str(self.input_dir),
                 "database": str(self.database),
                 "prefix": self.args.prefix,
-                "sensitive": getattr(self.args, "sensitive", False),
+                "detection": getattr(self.args, "detection", False),
             },
             "next_batch": 1,
             "files": {},
@@ -265,7 +265,7 @@ class StreamSpades:
                 f"Unsupported state version in {self.state_path}: {state.get('version')}"
             )
         expected = self._initial_state()["configuration"]
-        state.get("configuration", {}).setdefault("sensitive", False)
+        state.get("configuration", {}).setdefault("detection", False)
         if state.get("configuration") != expected:
             raise RuntimeError(
                 "The existing stream state belongs to a different input directory, "
@@ -764,8 +764,8 @@ class StreamSpades:
             command.extend(["--spades-data", str(self.args.spades_data.resolve())])
         if getattr(self.args, "skip_qc", False):
             command.append("--skip-qc")
-        if getattr(self.args, "sensitive", False):
-            command.append("--sensitive")
+        if getattr(self.args, "detection", False):
+            command.append("--detection")
         return command
 
     @staticmethod
@@ -942,9 +942,9 @@ class StreamSpades:
 
         chunk_bam = self._find_chunk_bam(chunk_dir, chunk_prefix)
         valid_chunk_bam = self._bam_is_valid(chunk_bam)
-        sensitive = getattr(self.args, "sensitive", False)
+        detection = getattr(self.args, "detection", False)
         chunk_fasta = self._find_chunk_fasta(chunk_dir, chunk_prefix)
-        if not sensitive and valid_chunk_bam and not self._fasta_is_valid(chunk_fasta):
+        if not detection and valid_chunk_bam and not self._fasta_is_valid(chunk_fasta):
             raise RuntimeError(
                 f"Valid chunk BAM has no valid Sylph-extracted FASTA: {chunk_fasta}"
             )
@@ -960,7 +960,7 @@ class StreamSpades:
             if inferred_fasta.is_file():
                 previous_fasta_text = str(inferred_fasta)
         previous_fasta = Path(previous_fasta_text) if previous_fasta_text else None
-        if not sensitive and previous_bam is not None and not self._fasta_is_valid(previous_fasta):
+        if not detection and previous_bam is not None and not self._fasta_is_valid(previous_fasta):
             raise RuntimeError(
                 "Saved cumulative BAM has no valid cumulative Sylph-extracted FASTA; "
                 "rebuild the streaming output to call variants cumulatively"
@@ -1025,7 +1025,7 @@ class StreamSpades:
                     self._relative_path(candidate),
                 )
 
-            if not sensitive:
+            if not detection:
                 candidate_fasta = batch_dir / "candidate.sig_extracted.fa.bgz"
                 cumulative_fasta = (
                     self.output_dir
@@ -1293,7 +1293,7 @@ same command again to resume.
         help="Minimum variant-calling depth passed to run_SPADES.sh (default: %(default)s)",
     )
     parser.add_argument(
-        "--sensitive", action="store_true",
+        "--detection", action="store_true",
         help="Use standard gottcha2 profile mode with a .mmi database",
     )
     parser.add_argument(
@@ -1342,7 +1342,7 @@ def validate_args(args: argparse.Namespace) -> None:
     if not args.run_spades.is_file():
         raise ValueError(f"run_SPADES.sh not found: {args.run_spades}")
     database = str(database_base(args.db_path))
-    indexes = (".mmi",) if args.sensitive else (".syldb", ".zip")
+    indexes = (".mmi",) if args.detection else (".syldb", ".zip")
     for suffix in (*indexes, ".stats", ".tax.tsv"):
         if not Path(f"{database}{suffix}").is_file():
             raise ValueError(f"Database file not found: {database}{suffix}")

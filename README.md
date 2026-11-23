@@ -159,7 +159,7 @@ The pipeline keeps final tables in the main output directory, HTML reports in
 - `<prefix>.mpa.tsv` MetaPhlAn-compatible output
 - `<prefix>.lineage.tsv` Lineage information
 - `<prefix>.sylph_*` Sylph extraction files
-- `<prefix>.sylph_extracted.fa.bgz` Extracted reference FASTA used for alignment and coverage analysis (with indexes when produced)
+- `<prefix>.sig_extracted.fa.bgz` Extracted reference FASTA used for alignment and coverage analysis (with indexes when produced)
 
 Existing-BAM mode uses the supplied BAM and its index in place; it does not
 copy them into the final output directory.
@@ -237,7 +237,7 @@ Streaming output is organized as follows:
 ```text
 <outdir>/
   cumulative/<prefix>.gottcha_<level>.bam[.bai]
-  cumulative/<prefix>.sylph_extracted.fa.bgz
+  cumulative/<prefix>.sig_extracted.fa.bgz
   cumulative/<prefix>.pathogen.tsv
   cumulative/<prefix>.pathogen.summary.txt
   cumulative/<prefix>.taxonomy.tsv

@@ -157,11 +157,6 @@ fi
 [[ -n "$OUTDIR" ]]          || { echo "ERROR: missing --outdir" >&2; usage; exit 2; }
 [[ -n "$PREFIX" ]]          || { echo "ERROR: missing --prefix" >&2; usage; exit 2; }
 [[ -n "$DB_PATH" ]]         || { echo "ERROR: missing --db-path" >&2; usage; exit 2; }
-DB_PATH="${DB_PATH%.syldb}"
-DB_PATH="${DB_PATH%.mmi}"
-DB_PATH="${DB_PATH%.zip}"
-DB_PATH="${DB_PATH%.stats}"
-DB_PATH="${DB_PATH%.tax.tsv}"
 if [[ "$BAM_MODE" != "true" ]]; then
   if [[ "$SENSITIVE" == "true" ]]; then
     [[ -f "$DB_PATH.mmi" ]] || { echo "ERROR: GOTTCHA2 standard database index not found: $DB_PATH.mmi" >&2; exit 2; }
@@ -544,6 +539,7 @@ generate_coverage_browser() {
       -r "$OUTDIR" \
       -p "$PREFIX" \
       -b "$bam" \
+      -d "$DB_PATH" \
       --min-depth "$MIN_DEPTH" \
       -o "$OUTDIR/$PREFIX.coverage_browser.html" || status=$?
   fi

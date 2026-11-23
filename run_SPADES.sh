@@ -428,7 +428,7 @@ generate_krona_plot() {
       || status=$?
   fi
   if [[ $status -eq 0 ]]; then
-    log_info "Krona plot generated: '$OUTDIR/$PREFIX.results_krona.html'."
+    log_info "Krona plot generated (*.results_krona.html)."
   else
     log_error "Krona plot generation failed (exit $status)."
   fi
@@ -449,8 +449,8 @@ annotate_pathogens_qualified() {
   if [[ $status -eq 0 ]]; then
     # filter out empty pathogen annotations
     awk 'NR==1 || $13 != ""' "$OUTDIR/$PREFIX.taxonomy.tsv" > "$OUTDIR/$PREFIX.pathogen.tsv" || exit $?
-    log_info "Pathogen annotation completed: '$OUTDIR/$PREFIX.pathogen.tsv'."
-    log_info "Pathogen summary saved: '$OUTDIR/$PREFIX.pathogen.summary.txt'."
+    log_info "Pathogen annotation completed (*.pathogen.tsv.)"
+    log_info "Pathogen summary saved (*.pathogen.summary.txt.)"
   else
     log_error "Pathogen annotation for qualified taxa failed (exit $status)."
   fi
@@ -468,33 +468,9 @@ annotate_pathogens_full() {
     -p "$SPADES_DATA/pathogen.tsv"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_info "Pathogen annotation completed: '$OUTDIR/$PREFIX.taxonomy.unfiltered.tsv'."
+    log_info "Pathogen annotation completed (*.taxonomy.unfiltered.tsv)."
   else
     log_error "Pathogen annotation for all taxa failed (exit $status)."
-  fi
-  return $status
-}
-
-extract_summary_levels() {
-  log_info "Extracting genus and species level data for result viewer..."
-  local summary="$OUTDIR/$PREFIX.pathogen.summary.tsv"
-  local status=0
-
-  if [[ ! -r "$OUTDIR/$PREFIX.pathogen.tsv" ]]; then
-    log_error "Pathogen TSV not readable: '$OUTDIR/$PREFIX.pathogen.tsv'."
-    return 1
-  fi
-
-  head -1 "$OUTDIR/$PREFIX.pathogen.tsv" > "$summary" || status=$?
-  if [[ $status -eq 0 ]]; then
-    grep "^species" "$OUTDIR/$PREFIX.pathogen.tsv" >> "$summary" || true
-    grep "^genus" "$OUTDIR/$PREFIX.pathogen.tsv" >> "$summary" || true
-  fi
-
-  if [[ $status -eq 0 ]]; then
-    log_info "Genus and species level data extracted: '$summary'."
-  else
-    log_error "Genus/species data extraction failed (exit $status)."
   fi
   return $status
 }
@@ -507,7 +483,7 @@ generate_result_viewer() {
     -o "$OUTDIR/$PREFIX.results_viewer.html"
   local status=$?
   if [[ $status -eq 0 ]]; then
-    log_info "Result viewer HTML generated: '$OUTDIR/$PREFIX.results_viewer.html'."
+    log_info "Result viewer HTML generated (*.results_viewer.html)."
   else
     log_error "Result viewer generation failed (exit $status)."
   fi
@@ -693,7 +669,6 @@ run_pipeline() {
   generate_krona_plot || exit $?
   annotate_pathogens_qualified || true  # Continue even if this step fails
   annotate_pathogens_full || exit $?
-  extract_summary_levels || exit $?
   generate_result_viewer || exit $?
   generate_coverage_browser || exit $?
   after_run || exit $?

@@ -242,6 +242,7 @@ class StreamSpades:
                 "database": str(self.database),
                 "prefix": self.args.prefix,
                 "detection": getattr(self.args, "detection", False),
+                "std_profile": getattr(self.args, "std_profile", False),
             },
             "next_batch": 1,
             "files": {},
@@ -266,6 +267,7 @@ class StreamSpades:
             )
         expected = self._initial_state()["configuration"]
         state.get("configuration", {}).setdefault("detection", False)
+        state.get("configuration", {}).setdefault("std_profile", False)
         if state.get("configuration") != expected:
             raise RuntimeError(
                 "The existing stream state belongs to a different input directory, "
@@ -766,6 +768,8 @@ class StreamSpades:
             command.append("--skip-qc")
         if getattr(self.args, "detection", False):
             command.append("--detection")
+        if getattr(self.args, "std_profile", False):
+            command.append("--std-profile")
         return command
 
     @staticmethod
@@ -789,7 +793,7 @@ class StreamSpades:
         ]
         if len(candidates) > 1:
             raise RuntimeError(
-                f"Multiple chunk Sylph-extracted FASTA files found for {chunk_prefix}: "
+                f"Multiple chunk extracted signature FASTA files found for {chunk_prefix}: "
                 f"{candidates}"
             )
         return candidates[0] if candidates else None
@@ -944,9 +948,9 @@ class StreamSpades:
         valid_chunk_bam = self._bam_is_valid(chunk_bam)
         detection = getattr(self.args, "detection", False)
         chunk_fasta = self._find_chunk_fasta(chunk_dir, chunk_prefix)
-        if not detection and valid_chunk_bam and not self._fasta_is_valid(chunk_fasta):
+        if valid_chunk_bam and not self._fasta_is_valid(chunk_fasta):
             raise RuntimeError(
-                f"Valid chunk BAM has no valid Sylph-extracted FASTA: {chunk_fasta}"
+                f"Valid chunk BAM has no valid extracted signature FASTA: {chunk_fasta}"
             )
         previous_text = self.state.get("cumulative_bam", "")
         previous_bam = Path(previous_text) if previous_text else None
@@ -960,9 +964,9 @@ class StreamSpades:
             if inferred_fasta.is_file():
                 previous_fasta_text = str(inferred_fasta)
         previous_fasta = Path(previous_fasta_text) if previous_fasta_text else None
-        if not detection and previous_bam is not None and not self._fasta_is_valid(previous_fasta):
+        if previous_bam is not None and not self._fasta_is_valid(previous_fasta):
             raise RuntimeError(
-                "Saved cumulative BAM has no valid cumulative Sylph-extracted FASTA; "
+                "Saved cumulative BAM has no valid cumulative extracted signature FASTA; "
                 "rebuild the streaming output to call variants cumulatively"
             )
 
@@ -1025,29 +1029,28 @@ class StreamSpades:
                     self._relative_path(candidate),
                 )
 
-            if not detection:
-                candidate_fasta = batch_dir / "candidate.sig_extracted.fa.bgz"
-                cumulative_fasta = (
-                    self.output_dir
-                    / "cumulative"
-                    / f"{self.args.prefix}.sig_extracted.fa.bgz"
+            candidate_fasta = batch_dir / "candidate.sig_extracted.fa.bgz"
+            cumulative_fasta = (
+                self.output_dir
+                / "cumulative"
+                / f"{self.args.prefix}.sig_extracted.fa.bgz"
+            )
+            fasta_inputs = []
+            if previous_fasta is not None:
+                fasta_inputs.append(previous_fasta)
+            if valid_chunk_bam and chunk_fasta is not None:
+                fasta_inputs.append(chunk_fasta)
+            self._merge_fastas(fasta_inputs, candidate_fasta)
+            if not self._fasta_is_valid(candidate_fasta):
+                raise RuntimeError(
+                    f"Merged extracted signature FASTA failed validation: {candidate_fasta}"
                 )
-                fasta_inputs = []
-                if previous_fasta is not None:
-                    fasta_inputs.append(previous_fasta)
-                if valid_chunk_bam and chunk_fasta is not None:
-                    fasta_inputs.append(chunk_fasta)
-                self._merge_fastas(fasta_inputs, candidate_fasta)
-                if not self._fasta_is_valid(candidate_fasta):
-                    raise RuntimeError(
-                        f"Merged Sylph-extracted FASTA failed validation: {candidate_fasta}"
-                    )
-                else:
-                    logging.info(
-                        "Merged cumulative Sylph-extracted FASTA for batch %s: %s",
-                        sequence,
-                        self._relative_path(candidate_fasta),
-                    )
+            else:
+                logging.info(
+                    "Merged cumulative extracted signature FASTA for batch %s: %s",
+                    sequence,
+                    self._relative_path(candidate_fasta),
+                )
 
             profile_dir.mkdir(parents=True)
             profile_reference = (
@@ -1294,7 +1297,11 @@ same command again to resume.
     )
     parser.add_argument(
         "--detection", action="store_true",
-        help="Use standard gottcha2 profile mode with a .mmi database",
+        help="Use a sensitive profiling criteria for detection",
+    )
+    parser.add_argument(
+        "--std-profile", action="store_true",
+        help="Use standard gottcha2 profile mode (requires a .mmi database)",
     )
     parser.add_argument(
         "--skip-qc", action="store_true",
@@ -1342,7 +1349,7 @@ def validate_args(args: argparse.Namespace) -> None:
     if not args.run_spades.is_file():
         raise ValueError(f"run_SPADES.sh not found: {args.run_spades}")
     database = str(database_base(args.db_path))
-    indexes = (".mmi",) if args.detection else (".syldb", ".zip")
+    indexes = (".mmi",) if args.std_profile else (".syldb", ".zip")
     for suffix in (*indexes, ".stats", ".tax.tsv"):
         if not Path(f"{database}{suffix}").is_file():
             raise ValueError(f"Database file not found: {database}{suffix}")

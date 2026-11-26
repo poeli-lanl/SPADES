@@ -10,7 +10,6 @@ import pandas as pd
 DEFAULT_LEVELS = {"strain", "species", "genus", "family"}
 DEFAULT_PATHOGEN_TSV = Path(__file__).resolve().parent.parent / "data" / "pathogen.tsv"
 
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Annotate GOTTCHA2 results with pathogen information.",

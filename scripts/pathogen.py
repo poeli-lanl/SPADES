@@ -144,7 +144,7 @@ def annotate_pathogens(
         elif is_pathogen:
             df_taxa.at[idx, "HUMAN_PATHOGEN"] = "No"
 
-    return df_taxa
+    return df_taxa[df_taxa["LEVEL"].isin(levels)]
 
 def pathogen_summary(df_taxa: pd.DataFrame) -> str:
     summary = ""
